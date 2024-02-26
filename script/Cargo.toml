@@ -1,0 +1,10 @@
+[workspace]
+[package]
+version = "0.1.0"
+name = "chess-script"
+edition = "2021"
+
+[dependencies]
+ethers = "2.0.13"
+sp1-core = { path = "../../sp1/core" }
+serde = { version = "1.0.197", features = ["derive"] }

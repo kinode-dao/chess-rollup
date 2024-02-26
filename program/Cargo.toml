@@ -1,0 +1,17 @@
+[workspace]
+[package]
+version = "0.1.0"
+name = "chess-program"
+edition = "2021"
+
+[dependencies]
+chess = "3.2.0"
+# ethers = "2.0.13"
+serde = { version = "1.0.197", features = ["derive"] }
+sp1-zkvm = { path = "../../sp1/zkvm" }
+ed25519-dalek = { git = "https://github.com/dalek-cryptography/curve25519-dalek.git", rev = "0b45e00", version = "2.1.0" }
+hex = "0.4"
+
+[patch.crates-io]
+# Patch sha2 so we can use sha precompiles
+sha2-v0-10-6 = { git = "https://github.com/succinctbot/RustCrypto-hashes.git", package = "sha2", branch = "main" }
