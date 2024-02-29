@@ -7,11 +7,12 @@ const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf
 
 #[derive(Serialize, Deserialize)]
 struct WrappedTransaction {
-    pub_key: [u8; 32],
+    // all these are hex strings, maybe move to alloy types at some point
+    pub_key: String,
     sig: String,
-    data: Vec<u8>,
-    // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
-    // I think we could use eth_sendRawTransaction to just send arbitrary bytes to a sequencer
+    data: String, // hex string
+                  // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
+                  // I think we could use eth_sendRawTransaction to just send arbitrary bytes to a sequencer
 }
 
 #[derive(Serialize, Deserialize)]
@@ -21,14 +22,14 @@ struct BridgeTokens {
 
 #[derive(Serialize, Deserialize)]
 struct InitializeGame {
-    white: [u8; 32],
-    black: [u8; 32],
+    white: String,
+    black: String,
     wager: u64,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Move {
-    game: ([u8; 32], [u8; 32]),
+    game: (String, String),
     san: String,
 }
 
@@ -57,18 +58,18 @@ fn main() {
     // stdin.write(&white_pub);
     // stdin.write(&black_pub);
     // stdin.write(&vec![white_move_1, black_move_1]);
-    let balances: HashMap<[u8; 32], u64> = HashMap::new();
-    let games: HashMap<([u8; 32], [u8; 32]), (String, u64)> = HashMap::new();
+    let balances: HashMap<String, u64> = HashMap::new();
+    let games: HashMap<(String, String), (String, u64)> = HashMap::new(); // (white, black) -> (fen, wager)
     let tx_1 = WrappedTransaction {
-        pub_key: hex!("8613146c8cbde0eb9a3b15766b873580e61971d525399e03386c3aa3fd38cfd3"),
+        pub_key: "8613146c8cbde0eb9a3b15766b873580e61971d525399e03386c3aa3fd38cfd3".to_string(),
         sig: "f5088a9b1efee58d88260aa1b2c2fb3a788d3534681c2d9a799909008fd1ae25f5f758d228ca7253b6722bdb2b53ceffdf89d2aab9eed0fefa2edc42756c1206".to_string(),
-        data: "000000006400000000000000".as_bytes().to_vec(),
+        data: "000000006400000000000000".to_string(),
     };
 
     let tx_2 = WrappedTransaction {
-        pub_key: hex!("27bb473c8ffeaa0fd9ca4f4bb05b7c7c121b52e60a0b63933e68a40caee6849a"),
+        pub_key: "27bb473c8ffeaa0fd9ca4f4bb05b7c7c121b52e60a0b63933e68a40caee6849a".to_string(),
         sig: "d0ab5dae6abfec1c1297e7794d8a6764207b7d5383694fe2e698072173e92f0ad6b64dbd3c642125648aa554a7eb32975c180ca1efe80d7a0f9a780745440201".to_string(),
-        data: "000000006400000000000000".as_bytes().to_vec(),
+        data: "000000006400000000000000".to_string(),
     };
     let mut stdin = SP1Stdin::new();
     stdin.write(&balances);

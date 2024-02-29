@@ -2,7 +2,9 @@
 sp1_zkvm::entrypoint!(main);
 
 use chess::{Board, ChessMove};
-use ed25519_dalek::*;
+// use ed25519_dalek::*;
+use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hint::black_box;
@@ -10,7 +12,8 @@ use std::str::FromStr;
 
 #[derive(Serialize, Deserialize)]
 struct WrappedTransaction {
-    pub_key: [u8; 32],
+    // all these are hex strings, maybe move to alloy types at some point
+    pub_key: String,
     sig: String,
     data: String, // hex string
                   // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
@@ -24,14 +27,14 @@ struct BridgeTokens {
 
 #[derive(Serialize, Deserialize)]
 struct InitializeGame {
-    white: [u8; 32],
-    black: [u8; 32],
+    white: String,
+    black: String,
     wager: u64,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Move {
-    game: ([u8; 32], [u8; 32]),
+    game: (String, String),
     san: String,
 }
 
@@ -43,21 +46,21 @@ enum TxType {
 }
 
 pub fn main() {
-    let mut balances = sp1_zkvm::io::read::<HashMap<[u8; 32], u64>>();
-    let mut games = sp1_zkvm::io::read::<HashMap<([u8; 32], [u8; 32]), (String, u64)>>(); // just a map of FEN encoded boards, wager
+    let mut balances = sp1_zkvm::io::read::<HashMap<String, u64>>();
+    let mut games = sp1_zkvm::io::read::<HashMap<(String, String), (String, u64)>>(); // just a map of FEN encoded boards, wager
 
     let mem_pool = sp1_zkvm::io::read::<Vec<WrappedTransaction>>();
 
     for tx in mem_pool.iter() {
-        let pub_key = black_box(VerifyingKey::from_bytes(&tx.pub_key).unwrap());
+        let pub_key_bytes = hex::decode(&tx.pub_key).unwrap();
+        let sig_bytes = hex::decode(&tx.sig).unwrap();
+        let data_bytes = hex::decode(&tx.data).unwrap();
 
-        // This is sig verification logic. It is slow so comment out for dev purposes
-        // let sig_bytes = hex::decode(&tx.sig).unwrap();
-        // let data_bytes = hex::decode(&tx.data).unwrap();
+        // let pub_key = black_box(VerifyingKey::from_bytes(&tx.pub_key).unwrap());
 
-        // let sig1 = black_box(Signature::try_from(&sig_bytes[..]).unwrap());
+        // let pub_key = VerifyingKey::from_sec1_bytes(&tx.pub_key).unwrap();
         // if !pub_key
-        //     .verify_strict(&black_box(data_bytes.clone()), &black_box(sig1))
+        //     .verify(&data_bytes, &Signature::try_from(&sig_bytes[..]).unwrap())
         //     .is_ok()
         // {
         //     sp1_zkvm::io::write(&"bad sig");
@@ -76,7 +79,7 @@ pub fn main() {
         match tx_type {
             TxType::BridgeTokens(bridge_tokens) => {
                 balances.insert(
-                    tx.pub_key,
+                    tx.pub_key.clone(),
                     balances.get(&tx.pub_key).unwrap_or(&0) + bridge_tokens.amount,
                 );
                 sp1_zkvm::io::write(&format!("bridged {}", bridge_tokens.amount));
@@ -93,7 +96,7 @@ pub fn main() {
             }
             TxType::Move(mov) => {
                 sp1_zkvm::io::write(&"move");
-                let (board_raw, wager) = games.get(&(mov.game.0, mov.game.1)).unwrap();
+                let (board_raw, wager) = games.get(&mov.game).unwrap();
                 let board = Board::from_str(board_raw.as_str()).unwrap();
                 let san_move = ChessMove::from_san(&board, mov.san.as_str());
                 if !san_move.is_ok() {
