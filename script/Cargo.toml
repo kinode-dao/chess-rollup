@@ -11,3 +11,4 @@ sp1-core = { path = "../../sp1/core" }
 serde = { version = "1.0.197", features = ["derive"] }
 ed25519-dalek = "1"
 rand = "0.8"
+hex-literal = "0.4.1"

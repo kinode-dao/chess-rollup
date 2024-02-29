@@ -117,6 +117,7 @@ dependencies = [
 name = "chess-program"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "chess",
  "ed25519-dalek",
  "hex",
