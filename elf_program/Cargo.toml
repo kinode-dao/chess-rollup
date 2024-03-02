@@ -5,6 +5,9 @@ name = "chess-program"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.40"
+alloy-primitives = { version = "0.6.4", features = ["serde"] }
+alloy-signer = { path = "../../alloy/crates/signer" }
 chess = "3.2.0"
 # ethers = "2.0.13"
 serde = { version = "1.0.197", features = ["derive"] }

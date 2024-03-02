@@ -8,41 +8,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize)]
-struct RollupState {
-    sequenced: Vec<WrappedTransaction>,
-    balances: HashMap<String, u64>,
-    withdrawals: Vec<(String, u64)>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct WrappedTransaction {
-    // all these are hex strings, maybe move to alloy types at some point
-    pub_key: String,
-    sig: String,
-    data: String, // hex string
-                  // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
-                  // I think we could use eth_sendRawTransaction to just send arbitrary bytes to a sequencer
-                  // or at the very least we can use eth_signMessage plus an http request to this process
-}
-
-#[derive(Serialize, Deserialize)]
-enum TxType {
-    BridgeTokens(u64),   // TODO U256
-    WithdrawTokens(u64), // TODO U256
-    Transfer {
-        from: String,
-        to: String,
-        amount: u64, // TODO U256
-    },
-    Mint {
-        to: String,
-        amount: u64, // TODO U256
-    },
-}
+mod tx;
+use tx::*;
 
 fn save_rollup_state(state: &RollupState) {
     set_state(&bincode::serialize(&state).unwrap());
+    // NOTE this function also needs to include logic for pushing to some DA layer
 }
 
 fn load_rollup_state() -> RollupState {
@@ -172,7 +143,10 @@ fn handle_http_request(
                     vec![],
                 ));
             };
-            let blob_json = serde_json::from_slice::<WrappedTransaction>(&blob.bytes)?;
+            let tx = serde_json::from_slice::<WrappedTransaction>(&blob.bytes)?;
+
+            chain_event_loop(tx, state)?;
+            save_rollup_state(state);
 
             Ok(())
         }
@@ -182,63 +156,5 @@ fn handle_http_request(
             None,
             vec![],
         )),
-    }
-}
-
-// NOTE
-// This code needs to be lifted into SP1 prover when it's time to zk prove
-// places where we return errors, we don't even sequence.
-// TODO this should return a state hash and or a withdrawals hash
-fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyhow::Result<()> {
-    let decode_tx = tx.clone();
-    let pub_key_bytes: [u8; 20] = hex::decode(&decode_tx.pub_key).unwrap().try_into().unwrap();
-    let pub_key: AlloyAddress = AlloyAddress::from(pub_key_bytes);
-    let signature: Signature = bincode::deserialize(&hex::decode(&decode_tx.sig).unwrap()).unwrap();
-    let data_bytes = hex::decode(&decode_tx.data).unwrap();
-
-    if signature.recover_address_from_msg(&data_bytes[..]).unwrap() != pub_key_bytes {
-        return Err(anyhow::anyhow!("bad sig"));
-    }
-
-    let Ok(tx_type) = bincode::deserialize(&data_bytes) else {
-        return Err(anyhow::anyhow!("bad tx type"));
-    };
-
-    match tx_type {
-        TxType::BridgeTokens(amount) => {
-            state.balances.insert(
-                tx.pub_key.clone(),
-                state.balances.get(&tx.pub_key).unwrap_or(&0) + amount,
-            );
-            state.sequenced.push(tx);
-            Ok(())
-        }
-        TxType::WithdrawTokens(amount) => {
-            state.balances.insert(
-                tx.pub_key.clone(),
-                state.balances.get(&tx.pub_key).unwrap_or(&0) - amount,
-            );
-            state.withdrawals.push((tx.pub_key.clone(), amount));
-            state.sequenced.push(tx);
-            Ok(())
-        }
-        TxType::Transfer { from, to, amount } => {
-            state.balances.insert(
-                from.clone(),
-                state.balances.get(&from).unwrap_or(&0) - amount,
-            );
-            state
-                .balances
-                .insert(to.clone(), state.balances.get(&to).unwrap_or(&0) + amount);
-            state.sequenced.push(tx);
-            Ok(())
-        }
-        TxType::Mint { to, amount } => {
-            state
-                .balances
-                .insert(to.clone(), state.balances.get(&to).unwrap_or(&0) + amount);
-            state.sequenced.push(tx);
-            Ok(())
-        }
     }
 }
