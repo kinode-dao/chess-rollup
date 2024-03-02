@@ -1,0 +1,16 @@
+{
+    "name": "erc20",
+    "description": "",
+    "image": "",
+    "properties": {
+        "package_name": "rollup",
+        "current_version": "0.1.0",
+        "publisher": "goldfinger.os",
+        "mirrors": [],
+        "code_hashes": {
+            "0.1.0": ""
+        }
+    },
+    "external_url": "",
+    "animation_url": ""
+}

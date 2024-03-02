@@ -883,21 +883,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kino"
-version = "0.1.0"
-dependencies = [
- "alloy-primitives",
- "alloy-signer",
- "anyhow",
- "bincode",
- "hex",
- "kinode_process_lib",
- "serde",
- "serde_json",
- "wit-bindgen",
-]
-
-[[package]]
 name = "kinode_process_lib"
 version = "0.6.0"
 source = "git+https://github.com/kinode-dao/process_lib?rev=3232423#323242399efdcdad02e7f31bb6a9cc5eec048610"
@@ -1389,6 +1374,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0bef5b7f9e0df16536d3961cfb6e84331c065b4066afb39768d0e319411f7"
 dependencies = [
  "pest",
+]
+
+[[package]]
+name = "sequencer"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-signer",
+ "anyhow",
+ "bincode",
+ "hex",
+ "kinode_process_lib",
+ "serde",
+ "serde_json",
+ "wit-bindgen",
 ]
 
 [[package]]

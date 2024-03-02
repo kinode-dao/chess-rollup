@@ -1,11 +1,11 @@
 {
-    "name": "rollup",
+    "name": "prover",
     "description": "",
     "image": "",
     "properties": {
-        "package_name": "rollup",
+        "package_name": "prover",
         "current_version": "0.1.0",
-        "publisher": "goldfinger.os",
+        "publisher": "sys",
         "mirrors": [],
         "code_hashes": {
             "0.1.0": ""
