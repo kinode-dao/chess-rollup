@@ -1,12 +1,8 @@
 #![feature(let_chains)]
-use alloy_primitives::{Address as AlloyAddress, Signature};
-use alloy_signer::{LocalWallet, Signer, SignerSync};
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state, http, println, set_state, Address, Message,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 mod tx;
 use tx::*;
@@ -147,6 +143,8 @@ fn handle_http_request(
 
             chain_event_loop(tx, state)?;
             save_rollup_state(state);
+            // TODO propagate tx to DA layer
+            // TODO respond with tx receipt
 
             Ok(())
         }
