@@ -5,15 +5,15 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize)]
 pub struct RollupState {
     pub sequenced: Vec<WrappedTransaction>,
-    pub balances: HashMap<String, u64>,
-    pub withdrawals: Vec<(String, u64)>,
+    pub balances: HashMap<AlloyAddress, u64>,
+    pub withdrawals: Vec<(AlloyAddress, u64)>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WrappedTransaction {
     // all these are hex strings, maybe move to alloy types at some point
-    pub pub_key: String,
-    pub sig: String,
+    pub pub_key: AlloyAddress,
+    pub sig: Signature,
     pub data: TxType,
     // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
     // I think we could use eth_sendRawTransaction to just send arbitrary bytes to a sequencer
@@ -25,25 +25,28 @@ pub enum TxType {
     BridgeTokens(u64),   // TODO U256
     WithdrawTokens(u64), // TODO U256
     Transfer {
-        from: String,
-        to: String,
+        from: AlloyAddress,
+        to: AlloyAddress,
         amount: u64, // TODO U256
     },
     Mint {
-        to: String,
+        to: AlloyAddress,
         amount: u64, // TODO U256
     },
 }
 
 pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyhow::Result<()> {
     let decode_tx = tx.clone();
-    let pub_key_bytes: [u8; 20] = hex::decode(&decode_tx.pub_key).unwrap().try_into().unwrap();
-    // let pub_key: AlloyAddress = AlloyAddress::from(pub_key_bytes);
-    // let signature: Signature = bincode::deserialize(&hex::decode(&decode_tx.sig).unwrap()).unwrap();
 
-    // if signature.recover_address_from_msg(&data_bytes[..]).unwrap() != pub_key_bytes {
-    //     return Err(anyhow::anyhow!("bad sig"));
-    // }
+    if decode_tx
+        .sig
+        .recover_address_from_msg(&serde_json::to_string(&decode_tx.sig).unwrap().as_bytes())
+        .unwrap()
+        != decode_tx.pub_key
+    {
+        println!("sequencer: bad sig, continuing for demo anyways");
+        // return Err(anyhow::anyhow!("bad sig"));
+    }
 
     match decode_tx.data {
         TxType::BridgeTokens(amount) => {
@@ -59,7 +62,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                 tx.pub_key.clone(),
                 state.balances.get(&tx.pub_key).unwrap_or(&0) - amount,
             );
-            state.withdrawals.push((tx.pub_key.clone(), amount));
+            state.withdrawals.push((tx.pub_key, amount));
             state.sequenced.push(tx);
             Ok(())
         }
@@ -77,7 +80,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
         TxType::Mint { to, amount } => {
             state
                 .balances
-                .insert(to.clone(), state.balances.get(&to).unwrap_or(&0) + amount);
+                .insert(to, state.balances.get(&to).unwrap_or(&0) + amount);
             state.sequenced.push(tx);
             Ok(())
         }

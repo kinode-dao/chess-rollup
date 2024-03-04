@@ -6,7 +6,7 @@ import {
 } from "react";
 // import UqbarEncryptorApi from "@uqbar/client-encryptor-api";
 import useSequencerStore, { WrappedTransaction, TxType } from "./store";
-// import "./App.css";
+import { ethers } from "ethers";
 
 declare global {
   var window: Window & typeof globalThis;
@@ -21,8 +21,8 @@ function App() {
   const [bridgeAmount, setBridgeAmount] = useState(0);
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState(0);
-  const [mintTo, setMintTo] = useState('');
-  const [mintAmount, setMintAmount] = useState(0);
+  const [mintTo, setMintTo] = useState('0xde12193c037f768fdc0db0b77b7e70de723b95e7');
+  const [mintAmount, setMintAmount] = useState(5);
 
   // get balances
   useEffect(() => {
@@ -62,12 +62,19 @@ function App() {
           method: 'personal_sign',
           params: [JSON.stringify(tx), account],
         });
-        console.log(`Message: ${tx}`);
-        console.log(`Signature: ${signature}`);
+        const { r, s, v } = ethers.utils.splitSignature(signature);
+        console.log(`Message: ${JSON.stringify(tx)}`);
+        console.log(`r: ${r}`);
+        console.log(`s: ${s}`);
+        console.log(`v: ${v}`);
 
         let wtx: WrappedTransaction = {
           pub_key: account.slice(2),
-          sig: signature.slice(2),
+          sig: {
+            r,
+            s,
+            v,
+          },
           data: tx
         };
 
@@ -112,12 +119,18 @@ function App() {
           method: 'personal_sign',
           params: [JSON.stringify(tx), account],
         });
-        console.log(`Message: ${tx}`);
-        console.log(`Signature: ${signature}`);
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        console.log(`Message: ${JSON.stringify(tx)}`);
+        console.log(`r: ${r}`);
+        console.log(`s: ${s}`);
+        console.log(`v: ${v}`);
 
         let wtx: WrappedTransaction = {
           pub_key: account.slice(2),
-          sig: signature.slice(2),
+          sig: {
+            r, s, v
+          },
           data: tx
         };
 
@@ -151,7 +164,7 @@ function App() {
 
         let tx: TxType = {
           Mint: {
-            to: mintTo,
+            to: mintTo.slice(2),
             amount: mintAmount,
           },
         }
@@ -160,12 +173,20 @@ function App() {
           method: 'personal_sign',
           params: [JSON.stringify(tx), account],
         });
-        console.log(`Message: ${tx}`);
-        console.log(`Signature: ${signature}`);
+        const { r, s, v } = ethers.utils.splitSignature(signature);
+
+        console.log(`Message: ${JSON.stringify(tx)}`);
+        console.log(`r: ${r}`);
+        console.log(`s: ${s}`);
+        console.log(`v: ${v}`);
 
         let wtx: WrappedTransaction = {
           pub_key: account.slice(2),
-          sig: signature.slice(2),
+          sig: {
+            r,
+            s,
+            v,
+          },
           data: tx
         };
 
@@ -239,7 +260,7 @@ function App() {
               value={mintAmount}
               onChange={(e) => setMintAmount(Number(e.target.value))}
             />
-            <button type="submit">Transfer</button>
+            <button type="submit">Mint</button>
           </form>
         </div>
       </div>
