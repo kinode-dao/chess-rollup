@@ -36,10 +36,13 @@ call_init!(initialize);
 fn initialize(our: Address) {
     println!("{}: started", our.package());
 
+    http::serve_ui(&our, "ui", true, false, vec!["/"]).unwrap();
+    http::bind_http_path("/rpc", true, false).unwrap();
     // transactions will come in via http
     http::bind_ws_path("/", true, false).unwrap();
 
     let mut state: RollupState = load_rollup_state();
+    state.balances.insert("0xcafebabe".to_string(), 100);
     main_loop(&our, &mut state);
 }
 
@@ -111,7 +114,7 @@ fn handle_http_request(
     state: &mut RollupState,
     http_request: &http::IncomingHttpRequest,
 ) -> anyhow::Result<()> {
-    if http_request.bound_path(Some(&our.process.to_string())) != "/games" {
+    if http_request.bound_path(Some(&our.process.to_string())) != "/rpc" {
         http::send_response(
             http::StatusCode::NOT_FOUND,
             None,
@@ -121,17 +124,22 @@ fn handle_http_request(
     }
     match http_request.method()?.as_str() {
         // on GET: view balances
-        "GET" => Ok(http::send_response(
-            http::StatusCode::OK,
-            Some(HashMap::from([(
-                String::from("Content-Type"),
-                String::from("application/json"),
-            )])),
-            serde_json::to_vec(&state.balances)?,
-        )),
+        "GET" => {
+            println!("sequencer: got GET request, returning balances...");
+            http::send_response(
+                http::StatusCode::OK,
+                Some(HashMap::from([(
+                    String::from("Content-Type"),
+                    String::from("application/json"),
+                )])),
+                serde_json::to_vec(&state.balances)?,
+            );
+            Ok(())
+        }
         // on POST: new transaction
         // TODO think we may need more RPC methods here
         "POST" => {
+            println!("sequencer: got POST request, handling transaction...");
             let Some(blob) = get_blob() else {
                 return Ok(http::send_response(
                     http::StatusCode::BAD_REQUEST,

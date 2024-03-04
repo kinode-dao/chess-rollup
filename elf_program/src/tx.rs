@@ -14,13 +14,13 @@ pub struct WrappedTransaction {
     // all these are hex strings, maybe move to alloy types at some point
     pub pub_key: String,
     pub sig: String,
-    pub data: String, // hex string
-                      // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
-                      // I think we could use eth_sendRawTransaction to just send arbitrary bytes to a sequencer
-                      // or at the very least we can use eth_signMessage plus an http request to this process
+    pub data: TxType,
+    // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
+    // I think we could use eth_sendRawTransaction to just send arbitrary bytes to a sequencer
+    // or at the very least we can use eth_signMessage plus an http request to this process
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TxType {
     BridgeTokens(u64),   // TODO U256
     WithdrawTokens(u64), // TODO U256
@@ -39,18 +39,13 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
     let decode_tx = tx.clone();
     let pub_key_bytes: [u8; 20] = hex::decode(&decode_tx.pub_key).unwrap().try_into().unwrap();
     // let pub_key: AlloyAddress = AlloyAddress::from(pub_key_bytes);
-    let signature: Signature = bincode::deserialize(&hex::decode(&decode_tx.sig).unwrap()).unwrap();
-    let data_bytes = hex::decode(&decode_tx.data).unwrap();
+    // let signature: Signature = bincode::deserialize(&hex::decode(&decode_tx.sig).unwrap()).unwrap();
 
-    if signature.recover_address_from_msg(&data_bytes[..]).unwrap() != pub_key_bytes {
-        return Err(anyhow::anyhow!("bad sig"));
-    }
+    // if signature.recover_address_from_msg(&data_bytes[..]).unwrap() != pub_key_bytes {
+    //     return Err(anyhow::anyhow!("bad sig"));
+    // }
 
-    let Ok(tx_type) = bincode::deserialize(&data_bytes) else {
-        return Err(anyhow::anyhow!("bad tx type"));
-    };
-
-    match tx_type {
+    match decode_tx.data {
         TxType::BridgeTokens(amount) => {
             state.balances.insert(
                 tx.pub_key.clone(),
