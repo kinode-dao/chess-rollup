@@ -16,13 +16,13 @@ export type TxType =
     Transfer: {
       from: string;
       to: string;
-      amount: bigint;
+      amount: number;
     }
   }
   | {
     Mint: {
       to: string;
-      amount: bigint;
+      amount: number;
     }
   };
 

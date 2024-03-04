@@ -98,12 +98,12 @@ input[type="text"],
 input[type="password"],
 input[type="checkbox"] {
   padding: 1em;
-  border: 1px solid var(--orange-medium);
+  border: 1px solid black;
   border-radius: 8px;
   box-sizing: border-box;
   font-size: 1em;
-  background-color: var(--input-background);
-  color: var(--text-light);
+  background-color: white;
+  color: black;
 }
 
 input[type="text"],
