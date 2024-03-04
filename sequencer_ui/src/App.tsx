@@ -63,13 +63,9 @@ function App() {
           params: [JSON.stringify(tx), account],
         });
         const { r, s, v } = ethers.utils.splitSignature(signature);
-        console.log(`Message: ${JSON.stringify(tx)}`);
-        console.log(`r: ${r}`);
-        console.log(`s: ${s}`);
-        console.log(`v: ${v}`);
 
         let wtx: WrappedTransaction = {
-          pub_key: account.slice(2),
+          pub_key: account,
           sig: {
             r,
             s,
@@ -108,8 +104,8 @@ function App() {
 
         let tx: TxType = {
           Transfer: {
-            from: account.slice(2),
-            to: transferTo,
+            from: account.toLowerCase(),
+            to: transferTo.toLowerCase(),
             amount: transferAmount,
           },
         }
@@ -121,13 +117,8 @@ function App() {
         });
         const { v, r, s } = ethers.utils.splitSignature(signature);
 
-        console.log(`Message: ${JSON.stringify(tx)}`);
-        console.log(`r: ${r}`);
-        console.log(`s: ${s}`);
-        console.log(`v: ${v}`);
-
         let wtx: WrappedTransaction = {
-          pub_key: account.slice(2),
+          pub_key: account,
           sig: {
             r, s, v
           },
@@ -164,7 +155,7 @@ function App() {
 
         let tx: TxType = {
           Mint: {
-            to: mintTo.slice(2),
+            to: mintTo.toLowerCase(),
             amount: mintAmount,
           },
         }
@@ -175,13 +166,8 @@ function App() {
         });
         const { r, s, v } = ethers.utils.splitSignature(signature);
 
-        console.log(`Message: ${JSON.stringify(tx)}`);
-        console.log(`r: ${r}`);
-        console.log(`s: ${s}`);
-        console.log(`v: ${v}`);
-
         let wtx: WrappedTransaction = {
-          pub_key: account.slice(2),
+          pub_key: account,
           sig: {
             r,
             s,
