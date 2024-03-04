@@ -42,7 +42,6 @@ fn initialize(our: Address) {
     http::bind_ws_path("/", true, false).unwrap();
 
     let mut state: RollupState = load_rollup_state();
-    state.balances.insert("0xcafebabe".to_string(), 100);
     main_loop(&our, &mut state);
 }
 
