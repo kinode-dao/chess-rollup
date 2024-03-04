@@ -144,7 +144,11 @@ fn handle_http_request(
             chain_event_loop(tx, state)?;
             save_rollup_state(state);
             // TODO propagate tx to DA layer
-            // TODO respond with tx receipt
+            http::send_response(
+                http::StatusCode::OK,
+                None, // TODO application/json
+                "todo send tx receipt here".to_string().as_bytes().to_vec(),
+            );
 
             Ok(())
         }

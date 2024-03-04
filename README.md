@@ -9,6 +9,9 @@ Sequencer code as a kinode app. This keeps track of state (tx history, and chain
 - needs to make the data available (DAC on Kinode, posting to L1 once the new ETH provider is setup, Celestia, EigenDA, etc.)
 - Frontend for demo purposes
 
+## `prover`
+A kinode package that will prove a computation for you given an ELF file and some inputs. Right now it is all in wasm, and so we'll need `prover_extension` for production.
+
 ## `prover_extension`
 Just a script that helps me generate proofs. It is not actually a runtime extension (yet!)
 
