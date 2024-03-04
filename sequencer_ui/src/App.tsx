@@ -18,10 +18,10 @@ if (window.our) window.our.process = BASE_URL?.replace("/", "");
 
 function App() {
   const { balances, set } = useSequencerStore();
-  const [bridgeAmount, setBridgeAmount] = useState(0);
+  // const [bridgeAmount, setBridgeAmount] = useState(0);
   const [transferTo, setTransferTo] = useState('');
   const [transferAmount, setTransferAmount] = useState(0);
-  const [mintTo, setMintTo] = useState('0xde12193c037f768fdc0db0b77b7e70de723b95e7');
+  const [mintTo, setMintTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [mintAmount, setMintAmount] = useState(5);
 
   // get balances
@@ -42,52 +42,52 @@ function App() {
       .catch(console.error);
   }, []);
 
-  const bridge = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (!window.ethereum) {
-        console.error('Ethereum wallet is not connected');
-        return;
-      }
-      console.log('bridge', bridgeAmount);
+  // const bridge = useCallback(
+  //   async (e: FormEvent) => {
+  //     e.preventDefault();
+  //     if (!window.ethereum) {
+  //       console.error('Ethereum wallet is not connected');
+  //       return;
+  //     }
+  //     console.log('bridge', bridgeAmount);
 
-      try {
-        let tx: TxType = {
-          BridgeTokens: bridgeAmount,
-        }
+  //     try {
+  //       let tx: TxType = {
+  //         BridgeTokens: bridgeAmount,
+  //       }
 
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
-        const signature = await window.ethereum.request({
-          method: 'personal_sign',
-          params: [JSON.stringify(tx), account],
-        });
-        const { r, s, v } = ethers.utils.splitSignature(signature);
+  //       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  //       const account = accounts[0];
+  //       const signature = await window.ethereum.request({
+  //         method: 'personal_sign',
+  //         params: [JSON.stringify(tx), account],
+  //       });
+  //       const { r, s, v } = ethers.utils.splitSignature(signature);
 
-        let wtx: WrappedTransaction = {
-          pub_key: account,
-          sig: {
-            r,
-            s,
-            v,
-          },
-          data: tx
-        };
+  //       let wtx: WrappedTransaction = {
+  //         pub_key: account,
+  //         sig: {
+  //           r,
+  //           s,
+  //           v,
+  //         },
+  //         data: tx
+  //       };
 
-        const receipt = await fetch(`${BASE_URL}/rpc`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(wtx),
-        });
-        console.log('receipt', receipt);
-      } catch (err) {
-        console.error(err);
-      }
-    },
-    [balances, bridgeAmount, setBridgeAmount, set]
-  );
+  //       const receipt = await fetch(`${BASE_URL}/rpc`, {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify(wtx),
+  //       });
+  //       console.log('receipt', receipt);
+  //     } catch (err) {
+  //       console.error(err);
+  //     }
+  //   },
+  //   [balances, bridgeAmount, setBridgeAmount, set]
+  // );
 
   const transfer = useCallback(
     async (e: FormEvent) => {
@@ -96,7 +96,6 @@ function App() {
         console.error('Ethereum wallet is not connected');
         return;
       }
-      console.log('bridge', bridgeAmount);
 
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -147,7 +146,6 @@ function App() {
         console.error('Ethereum wallet is not connected');
         return;
       }
-      console.log('bridge', bridgeAmount);
 
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });

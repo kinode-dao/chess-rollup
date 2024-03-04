@@ -34,45 +34,13 @@ export type TxType =
 
 export interface SequencerStore {
   balances: Record<string, number>
-  handleWsMessage: (message: string) => void
   set: (partial: SequencerStore | Partial<SequencerStore>) => void
 }
 
 const useSequencerStore = create<SequencerStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({  // get
       balances: {},
-      handleWsMessage: (json: string | Blob) => {
-
-        // if (typeof json === 'string') {
-        //   try {
-        //     const { kind, data } = JSON.parse(json) as WsMessage;
-        //     if (kind === 'game_update') {
-        //       set({ games: { ...get().games, [data.id]: data } })
-        //     }
-        //   } catch (error) {
-        //     console.error("Error parsing WebSocket message", error);
-        //   }
-        // } else {
-        //   const reader = new FileReader();
-
-        //   reader.onload = function (event) {
-        //     if (typeof event?.target?.result === 'string') {
-        //       try {
-        //         const { kind, data } = JSON.parse(event.target.result) as WsMessage;
-
-        //         if (kind === 'game_update') {
-        //           set({ games: { ...get().games, [data.id]: data } })
-        //         }
-        //       } catch (error) {
-        //         console.error("Error parsing WebSocket message", error);
-        //       }
-        //     }
-        //   };
-
-        //   reader.readAsText(json);
-        // }
-      },
       set,
     }),
     {
