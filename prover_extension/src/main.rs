@@ -42,7 +42,6 @@ async fn main() -> anyhow::Result<()> {
             Some(message) = read.next() => {
                 match message {
                     Ok(Binary(ref request)) => {
-                        println!("got Request");
                         let request = rmp_serde::from_slice(request)?;
                         prover(request, send_to_loop.clone()).await?;
                     }
@@ -59,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
             }
             Some(result) = recv_in_loop.recv() => {
                 match write.send(Binary(result)).await {
-                    Ok(_) => { println!("sending result"); }
+                    Ok(_) => {}
                     Err(e) => {
                         eprintln!("Error in sending message: {}", e);
                     }
@@ -70,7 +69,6 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn prover(request: HttpServerAction, send_to_loop: Sender) -> anyhow::Result<()> {
-    println!("processing Request");
     let HttpServerAction::WebSocketExtPushData {
         id,
         kinode_message_type,
@@ -79,31 +77,17 @@ async fn prover(request: HttpServerAction, send_to_loop: Sender) -> anyhow::Resu
     else {
         return Err(anyhow::anyhow!("not a WebSocketExtPushData, as expected"));
     };
-    println!("still processing Request {}", blob.len());
     let req: ProveRequest = bincode::deserialize(&blob)?;
-    println!("ext: got Request");
-    tokio::spawn(async move {
-        let result = run_prover(req).await.unwrap();
-        println!("got\n{}", result);
-        let result = serde_json::to_vec(&HttpServerAction::WebSocketExtPushData {
-            id,
-            kinode_message_type,
-            blob: result.into_bytes(),
-        })
-        .unwrap();
-        let _ = send_to_loop.send(result).await;
-    });
-    Ok(())
-}
+    let Ok(proof) = SP1Prover::prove(&req.elf, req.input) else {
+        return Err(anyhow::anyhow!("error proving request"));
+    };
 
-async fn run_prover(req: ProveRequest) -> anyhow::Result<String> {
-    println!("running prover");
-    // TODO error handling if req.input is empty...maybe that falls on SP1? unclear...
-    match SP1Prover::prove(&req.elf, req.input) {
-        Ok(proof) => Ok(serde_json::to_string(&proof).unwrap()),
-        Err(e) => {
-            println!("error: {:?}", e);
-            return Err(anyhow::anyhow!("error: {:?}", e));
-        }
-    }
+    let result = serde_json::to_vec(&HttpServerAction::WebSocketExtPushData {
+        id,
+        kinode_message_type,
+        blob: serde_json::to_string(&proof).unwrap().into_bytes(),
+    })
+    .unwrap();
+    let _ = send_to_loop.send(result).await;
+    Ok(())
 }
