@@ -6,10 +6,3 @@ pub struct ProveRequest {
     pub elf: Vec<u8>,
     pub input: SP1Stdin,
 }
-
-// TODO
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ProverResponse {
-    Prove,
-    Err(String),
-}
