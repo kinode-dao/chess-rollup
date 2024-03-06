@@ -98,8 +98,12 @@ async fn prover(request: HttpServerAction, send_to_loop: Sender) -> anyhow::Resu
 
 async fn run_prover(req: ProveRequest) -> anyhow::Result<String> {
     println!("running prover");
-
-    let mut proof = SP1Prover::prove(&req.elf, req.input).expect("proving failed");
-
-    Ok(serde_json::to_string(&proof).unwrap())
+    // TODO error handling if req.input is empty...maybe that falls on SP1? unclear...
+    match SP1Prover::prove(&req.elf, req.input) {
+        Ok(proof) => Ok(serde_json::to_string(&proof).unwrap()),
+        Err(e) => {
+            println!("error: {:?}", e);
+            return Err(anyhow::anyhow!("error: {:?}", e));
+        }
+    }
 }

@@ -1,8 +1,9 @@
 #![feature(let_chains)]
 use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
-    await_message, call_init, get_blob, get_typed_state, http, println, set_state, Address,
-    Message, Request,
+    await_message, call_init, get_blob, get_typed_state, http, println, set_state,
+    vfs::{create_drive, create_file},
+    Address, Message, Request,
 };
 use serde::{Deserialize, Serialize};
 use sp1_core::SP1Stdin;
@@ -111,15 +112,15 @@ fn handle_request(
                 }
             }
             http::HttpServerRequest::WebSocketOpen { ref channel_id, .. } => {
-                println!("sequencer: got WebSocketOpen, connection established");
+                println!("sequencer: connected to prover_extension");
                 *connection = Some(*channel_id);
                 Ok(())
             }
             http::HttpServerRequest::WebSocketClose(ref channel_id) => {
-                println!("sequencer: got WebSocketClose");
                 if connection.unwrap_or(0) != *channel_id {
-                    return Err(anyhow::anyhow!("wrong channel_id"));
+                    return Err(anyhow::anyhow!("WebSocketClose wrong channel_id"));
                 }
+                println!("sequencer: dropped connection with prover_extension");
                 *connection = None;
                 Ok(())
             }
@@ -147,8 +148,10 @@ fn handle_request(
                 else {
                     return Err(anyhow::anyhow!("expected WebSocketExtPushData"));
                 };
-                println!("got proof, {:?}", String::from_utf8(blob));
-                // TODO do something with the proof
+                let drive_path: String = create_drive(our.package_id(), "proofs")?;
+                let proof_file = create_file(&format!("{}/proof.json", &drive_path))?;
+                proof_file.write(&blob)?;
+                // TODO verify this proof on some blockchain
                 Ok(())
             }
         }
