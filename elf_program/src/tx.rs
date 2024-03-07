@@ -1,12 +1,12 @@
-use alloy_primitives::{Address as AlloyAddress, Signature};
+use alloy_primitives::{Address as AlloyAddress, Signature, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize)]
 pub struct RollupState {
     pub sequenced: Vec<WrappedTransaction>,
-    pub balances: HashMap<AlloyAddress, u64>,
-    pub withdrawals: Vec<(AlloyAddress, u64)>,
+    pub balances: HashMap<AlloyAddress, U256>,
+    pub withdrawals: Vec<(AlloyAddress, U256)>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -25,16 +25,16 @@ pub struct WrappedTransaction {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TxType {
-    BridgeTokens(u64),   // TODO U256
-    WithdrawTokens(u64), // TODO U256
+    BridgeTokens(U256),   // TODO U256
+    WithdrawTokens(U256), // TODO U256
     Transfer {
         from: AlloyAddress,
         to: AlloyAddress,
-        amount: u64, // TODO U256
+        amount: U256, // TODO U256
     },
     Mint {
         to: AlloyAddress,
-        amount: u64, // TODO U256
+        amount: U256, // TODO U256
     },
 }
 
@@ -54,7 +54,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
         TxType::BridgeTokens(amount) => {
             state.balances.insert(
                 tx.pub_key.clone(),
-                state.balances.get(&tx.pub_key).unwrap_or(&0) + amount,
+                state.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) + amount,
             );
             state.sequenced.push(tx);
             Ok(())
@@ -62,7 +62,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
         TxType::WithdrawTokens(amount) => {
             state.balances.insert(
                 tx.pub_key.clone(),
-                state.balances.get(&tx.pub_key).unwrap_or(&0) - amount,
+                state.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) - amount,
             );
             state.withdrawals.push((tx.pub_key, amount));
             state.sequenced.push(tx);
@@ -71,18 +71,19 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
         TxType::Transfer { from, to, amount } => {
             state.balances.insert(
                 from.clone(),
-                state.balances.get(&from).unwrap_or(&0) - amount,
+                state.balances.get(&from).unwrap_or(&U256::ZERO) - amount,
             );
-            state
-                .balances
-                .insert(to.clone(), state.balances.get(&to).unwrap_or(&0) + amount);
+            state.balances.insert(
+                to.clone(),
+                state.balances.get(&to).unwrap_or(&U256::ZERO) + amount,
+            );
             state.sequenced.push(tx);
             Ok(())
         }
         TxType::Mint { to, amount } => {
             state
                 .balances
-                .insert(to, state.balances.get(&to).unwrap_or(&0) + amount);
+                .insert(to, state.balances.get(&to).unwrap_or(&U256::ZERO) + amount);
             state.sequenced.push(tx);
             Ok(())
         }

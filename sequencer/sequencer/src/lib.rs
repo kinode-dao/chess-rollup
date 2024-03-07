@@ -1,4 +1,7 @@
 #![feature(let_chains)]
+use alloy_primitives::{address, FixedBytes, U256};
+use alloy_sol_types::{sol, SolEvent};
+use kinode_process_lib::eth::{EthAddress, EthSubEvent, SubscribeLogsRequest};
 use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state, http, println, set_state,
@@ -8,6 +11,7 @@ use kinode_process_lib::{
 use serde::{Deserialize, Serialize};
 use sp1_core::SP1Stdin;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 mod prover_types;
 use prover_types::ProveRequest;
@@ -15,6 +19,12 @@ mod tx;
 use tx::*;
 
 const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-zkvm-elf");
+
+sol! {
+    event DepositMade(uint256 town, address tokenContract, uint256 tokenId,
+        address uqbarDest, uint256 amount, uint256 blockNumber, bytes32 prevDepositRoot
+    );
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum AdminActions {
@@ -58,6 +68,15 @@ fn initialize(our: Address) {
 
     let mut state: RollupState = load_rollup_state();
     let mut connection: Option<u32> = None;
+
+    let _ = SubscribeLogsRequest::new(1) // subscription id 1
+        .address(EthAddress::from_str("0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b").unwrap())
+        .from_block(0) // state.block - 1
+        .events(vec![
+            "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
+        ])
+        .send()
+        .unwrap();
 
     main_loop(&our, &mut state, &mut connection);
 }
@@ -141,9 +160,10 @@ fn handle_request(
                 };
 
                 let kinode_process_lib::http::HttpServerAction::WebSocketExtPushData {
-                    id,
-                    kinode_message_type,
+                    // id,
+                    // kinode_message_type,
                     blob,
+                    ..
                 } = serde_json::from_slice(&blob.bytes)?
                 else {
                     return Err(anyhow::anyhow!("expected WebSocketExtPushData"));
@@ -155,6 +175,52 @@ fn handle_request(
                 Ok(())
             }
         }
+    } else if message.source().node == our.node && message.source().process == "eth:distro:sys" {
+        println!("got eth message");
+        let Ok(msg) = serde_json::from_slice::<EthSubEvent>(message.body()) else {
+            return Err(anyhow::anyhow!("kns_indexer: got invalid message"));
+        };
+
+        let EthSubEvent::Log(log) = msg else {
+            return Err(anyhow::anyhow!("kns_indexer: got invalid message"));
+        };
+
+        // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up
+        match FixedBytes::<32>::new(log.topics[0].as_slice().try_into().unwrap()) {
+            DepositMade::SIGNATURE_HASH => {
+                println!("deposit event");
+                // let event = DepositMade::from_log(&log)?;
+                let deposit = DepositMade::abi_decode_data(&log.data, true).unwrap();
+                let rollup_id = deposit.0;
+                let token_contract = deposit.1;
+                let token_id = deposit.2;
+                let uqbar_dest = deposit.3;
+                let amount = deposit.4;
+                let _block_number = deposit.5;
+                let _prev_deposit_root = deposit.6;
+                if rollup_id != U256::ZERO {
+                    return Err(anyhow::anyhow!("not handling rollup deposits"));
+                }
+                if token_contract != address!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
+                    return Err(anyhow::anyhow!("only handling ETH deposits"));
+                }
+                if token_id != U256::ZERO {
+                    return Err(anyhow::anyhow!("not handling NFT deposits"));
+                }
+
+                state
+                    .balances
+                    .entry(uqbar_dest)
+                    .and_modify(|balance| *balance += amount)
+                    .or_insert(amount);
+            }
+            _ => {
+                println!("unknown event");
+            }
+        }
+
+        println!("log received: {:?}", log);
+        Ok(())
     } else if message.source().node == our.node {
         match serde_json::from_slice::<AdminActions>(message.body())? {
             AdminActions::Prove => {
@@ -191,18 +257,19 @@ fn handle_request(
 
 /// Handle HTTP requests from our own frontend.
 fn handle_http_request(
-    our: &Address,
+    _our: &Address,
     state: &mut RollupState,
     http_request: &http::IncomingHttpRequest,
 ) -> anyhow::Result<()> {
-    if http_request.bound_path(Some(&our.process.to_string())) != "/rpc" {
-        http::send_response(
-            http::StatusCode::NOT_FOUND,
-            None,
-            "Not Found".to_string().as_bytes().to_vec(),
-        );
-        return Ok(());
-    }
+    // TODO fix this
+    // if http_request.bound_path(Some(&our.process.to_string())) != "/rpc" {
+    //     http::send_response(
+    //         http::StatusCode::NOT_FOUND,
+    //         None,
+    //         "Not Found".to_string().as_bytes().to_vec(),
+    //     );
+    //     return Ok(());
+    // }
     match http_request.method()?.as_str() {
         // on GET: view balances
         "GET" => {
