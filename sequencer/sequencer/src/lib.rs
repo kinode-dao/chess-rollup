@@ -1,5 +1,5 @@
 #![feature(let_chains)]
-use alloy_primitives::{address, FixedBytes, U256};
+use alloy_primitives::{address, FixedBytes, Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
 use kinode_process_lib::eth::{EthAddress, EthSubEvent, SubscribeLogsRequest};
 use kinode_process_lib::kernel_types::MessageType;
@@ -213,6 +213,18 @@ fn handle_request(
                     .entry(uqbar_dest)
                     .and_modify(|balance| *balance += amount)
                     .or_insert(amount);
+                // NOTE that it is impossible to establish a proper sequence of when bridge transactions get inserted
+                // relative to other transactions => MEV! (if there is any MEV to be done, which I kind of doubt)
+                // the point is that you can prove that these are part of the inputs to the program, and they have to be
+                // sequenced at some point before the batch is over
+                state.sequenced.push(WrappedTransaction {
+                    pub_key: uqbar_dest,
+                    // TODO maybe need to rearchitect bridge transactions because they don't really have a signature
+                    // you could get a signature from the sequencer? That could work! But at the end of the day it
+                    // doesn't matter, you don't need to verify it.
+                    sig: Signature::test_signature(),
+                    data: TxType::BridgeTokens(amount),
+                });
             }
             _ => {
                 println!("unknown event");

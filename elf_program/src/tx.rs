@@ -25,7 +25,6 @@ pub struct WrappedTransaction {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TxType {
-    BridgeTokens(U256),   // TODO U256
     WithdrawTokens(U256), // TODO U256
     Transfer {
         from: AlloyAddress,
@@ -51,14 +50,6 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
     }
 
     match decode_tx.data {
-        TxType::BridgeTokens(amount) => {
-            state.balances.insert(
-                tx.pub_key.clone(),
-                state.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) + amount,
-            );
-            state.sequenced.push(tx);
-            Ok(())
-        }
         TxType::WithdrawTokens(amount) => {
             state.balances.insert(
                 tx.pub_key.clone(),

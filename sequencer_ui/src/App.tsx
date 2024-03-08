@@ -18,7 +18,6 @@ if (window.our) window.our.process = BASE_URL?.replace("/", "");
 
 function App() {
   const { balances, set } = useSequencerStore();
-  // const [bridgeAmount, setBridgeAmount] = useState(0);
   const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [transferAmount, setTransferAmount] = useState(4);
   // const [mintTo, setMintTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
@@ -41,53 +40,6 @@ function App() {
       })
       .catch(console.error);
   }, []);
-
-  // const bridge = useCallback(
-  //   async (e: FormEvent) => {
-  //     e.preventDefault();
-  //     if (!window.ethereum) {
-  //       console.error('Ethereum wallet is not connected');
-  //       return;
-  //     }
-  //     console.log('bridge', bridgeAmount);
-
-  //     try {
-  //       let tx: TxType = {
-  //         BridgeTokens: bridgeAmount,
-  //       }
-
-  //       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-  //       const account = accounts[0];
-  //       const signature = await window.ethereum.request({
-  //         method: 'personal_sign',
-  //         params: [JSON.stringify(tx), account],
-  //       });
-  //       const { r, s, v } = ethers.utils.splitSignature(signature);
-
-  //       let wtx: WrappedTransaction = {
-  //         pub_key: account,
-  //         sig: {
-  //           r,
-  //           s,
-  //           v,
-  //         },
-  //         data: tx
-  //       };
-
-  //       const receipt = await fetch(`${BASE_URL}/rpc`, {
-  //         method: "POST",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //         },
-  //         body: JSON.stringify(wtx),
-  //       });
-  //       console.log('receipt', receipt);
-  //     } catch (err) {
-  //       console.error(err);
-  //     }
-  //   },
-  //   [balances, bridgeAmount, setBridgeAmount, set]
-  // );
 
   const transfer = useCallback(
     async (e: FormEvent) => {
@@ -209,18 +161,6 @@ function App() {
       <div
         className="flex flex-col items-center"
       >
-        {/* <h4 className="m-2">Bridge</h4>
-        <div className="flex flex-col overflow-scroll">
-          <form onSubmit={bridge}>
-            <input
-              type="number"
-              value={bridgeAmount}
-              onChange={(e) => setBridgeAmount(Number(e.target.value))}
-            />
-            <button type="submit">Bridge</button>
-          </form>
-        </div> */}
-        {/*  */}
         <h4 className="m-2">Transfer</h4>
         <div className="flex flex-col overflow-scroll">
           <form onSubmit={transfer}>
