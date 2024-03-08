@@ -16,19 +16,19 @@ export type Sig = {
 
 // For the `TxType` enum, TypeScript uses a combination of types and interfaces to achieve similar functionality.
 export type TxType =
-  | { BridgeTokens: number } // TODO could use bigint for u64/U256-like values, as JavaScript's Number type is not suitable for very large integers.
-  | { WithdrawTokens: number }
+  | { BridgeTokens: string } // BigNumber
+  | { WithdrawTokens: string } // BigNumber
   | {
     Transfer: {
       from: string;
       to: string;
-      amount: number;
+      amount: string; // BigNumber
     }
   }
   | {
     Mint: {
       to: string;
-      amount: number;
+      amount: string; // BigNumber
     }
   };
 

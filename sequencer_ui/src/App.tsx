@@ -6,7 +6,7 @@ import {
 } from "react";
 // import UqbarEncryptorApi from "@uqbar/client-encryptor-api";
 import useSequencerStore, { WrappedTransaction, TxType } from "./store";
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
 
 declare global {
   var window: Window & typeof globalThis;
@@ -19,8 +19,8 @@ if (window.our) window.our.process = BASE_URL?.replace("/", "");
 function App() {
   const { balances, set } = useSequencerStore();
   // const [bridgeAmount, setBridgeAmount] = useState(0);
-  const [transferTo, setTransferTo] = useState('');
-  const [transferAmount, setTransferAmount] = useState(0);
+  const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
+  const [transferAmount, setTransferAmount] = useState(4);
   const [mintTo, setMintTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [mintAmount, setMintAmount] = useState(5);
 
@@ -105,7 +105,7 @@ function App() {
           Transfer: {
             from: account.toLowerCase(),
             to: transferTo.toLowerCase(),
-            amount: transferAmount,
+            amount: BigNumber.from(transferAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
           },
         }
 
@@ -139,55 +139,55 @@ function App() {
     [balances, transferAmount, transferTo, setTransferAmount, setTransferTo, set]
   );
 
-  const mint = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (!window.ethereum) {
-        console.error('Ethereum wallet is not connected');
-        return;
-      }
+  // const mint = useCallback(
+  //   async (e: FormEvent) => {
+  //     e.preventDefault();
+  //     if (!window.ethereum) {
+  //       console.error('Ethereum wallet is not connected');
+  //       return;
+  //     }
 
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
+  //     try {
+  //       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+  //       const account = accounts[0];
 
-        let tx: TxType = {
-          Mint: {
-            to: mintTo.toLowerCase(),
-            amount: mintAmount,
-          },
-        }
+  //       let tx: TxType = {
+  //         Mint: {
+  //           to: mintTo.toLowerCase(),
+  //           amount: BigNumber.from(mintAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+  //         },
+  //       }
 
-        const signature = await window.ethereum.request({
-          method: 'personal_sign',
-          params: [JSON.stringify(tx), account],
-        });
-        const { r, s, v } = ethers.utils.splitSignature(signature);
+  //       const signature = await window.ethereum.request({
+  //         method: 'personal_sign',
+  //         params: [JSON.stringify(tx), account],
+  //       });
+  //       const { r, s, v } = ethers.utils.splitSignature(signature);
 
-        let wtx: WrappedTransaction = {
-          pub_key: account,
-          sig: {
-            r,
-            s,
-            v,
-          },
-          data: tx
-        };
+  //       let wtx: WrappedTransaction = {
+  //         pub_key: account,
+  //         sig: {
+  //           r,
+  //           s,
+  //           v,
+  //         },
+  //         data: tx
+  //       };
 
-        const receipt = await fetch(`${BASE_URL}/rpc`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(wtx),
-        });
-        console.log('receipt', receipt);
-      } catch (err) {
-        console.error(err);
-      }
-    },
-    [balances, mintAmount, mintTo, setMintAmount, setMintTo, set]
-  );
+  //       const receipt = await fetch(`${BASE_URL}/rpc`, {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify(wtx),
+  //       });
+  //       console.log('receipt', receipt);
+  //     } catch (err) {
+  //       console.error(err);
+  //     }
+  //   },
+  //   [balances, mintAmount, mintTo, setMintAmount, setMintTo, set]
+  // );
 
   return (
     <div
@@ -234,7 +234,7 @@ function App() {
           </form>
         </div>
         {/*  */}
-        <br /><br /><br />
+        {/* <br /><br /><br />
         <h4 className="m-2">Mint</h4>
         <div className="flex flex-col overflow-scroll">
           <form onSubmit={mint}>
@@ -246,7 +246,7 @@ function App() {
             />
             <button type="submit">Mint</button>
           </form>
-        </div>
+        </div> */}
       </div>
     </div>
   );
