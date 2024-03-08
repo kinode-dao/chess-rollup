@@ -21,8 +21,8 @@ function App() {
   // const [bridgeAmount, setBridgeAmount] = useState(0);
   const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [transferAmount, setTransferAmount] = useState(4);
-  const [mintTo, setMintTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
-  const [mintAmount, setMintAmount] = useState(5);
+  // const [mintTo, setMintTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
+  // const [mintAmount, setMintAmount] = useState(5);
 
   // get balances
   useEffect(() => {
@@ -202,7 +202,7 @@ function App() {
         <h4 className="m-2">Balances</h4>
         <div className="flex flex-col overflow-scroll">
           {Object.keys(balances).map((address, i) => (
-            <p key={i}>{`${address}: ${balances[address]}`}</p>
+            <p key={i}>{`${address}: ${BigNumber.from(balances[address])} WEI`}</p>
           ))}
         </div>
       </div>
