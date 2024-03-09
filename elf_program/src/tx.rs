@@ -11,7 +11,6 @@ pub struct RollupState {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WrappedTransaction {
-    // all these are hex strings, maybe move to alloy types at some point
     pub pub_key: AlloyAddress,
     pub sig: Signature,
     pub data: TxType,
@@ -25,15 +24,16 @@ pub struct WrappedTransaction {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TxType {
-    WithdrawTokens(U256), // TODO U256
+    BridgeTokens(U256),
+    WithdrawTokens(U256),
     Transfer {
         from: AlloyAddress,
         to: AlloyAddress,
-        amount: U256, // TODO U256
+        amount: U256,
     },
     Mint {
         to: AlloyAddress,
-        amount: U256, // TODO U256
+        amount: U256,
     },
 }
 
@@ -50,6 +50,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
     }
 
     match decode_tx.data {
+        TxType::BridgeTokens(_) => Ok(()),
         TxType::WithdrawTokens(amount) => {
             state.balances.insert(
                 tx.pub_key.clone(),

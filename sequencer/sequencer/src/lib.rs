@@ -6,7 +6,7 @@ use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state, http, println, set_state,
     vfs::{create_drive, create_file},
-    Address, Message, Request,
+    Address, Message, NodeId, Request,
 };
 use serde::{Deserialize, Serialize};
 use sp1_core::SP1Stdin;
@@ -29,6 +29,16 @@ sol! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum AdminActions {
     Prove,
+    Disperse,
+}
+
+type BatchId = U256;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum DisperserActions {
+    AddClient((NodeId, EthAddress)),
+    PostBatch(Vec<WrappedTransaction>),
+    PullBatch(BatchId),
 }
 
 fn save_rollup_state(state: &RollupState) {
@@ -231,7 +241,6 @@ fn handle_request(
             }
         }
 
-        println!("log received: {:?}", log);
         Ok(())
     } else if message.source().node == our.node {
         match serde_json::from_slice::<AdminActions>(message.body())? {
@@ -252,13 +261,23 @@ fn handle_request(
                             desired_reply_type: MessageType::Response,
                         },
                     )?)
-                    .expects_response(1000) // TODO figure this out
                     .blob_bytes(bincode::serialize(&ProveRequest {
                         elf: ELF.to_vec(),
                         input: stdin,
                     })?)
                     .send()
                     .unwrap();
+                // NOTE the response comes in as a WebSocketPush message
+                Ok(())
+            }
+            AdminActions::Disperse => {
+                // TODO this should probably just happen automatically when Prove is called
+                let _ = Request::new()
+                    .target(("our", "disperser", "rollup", "goldfinger.os"))
+                    .body(serde_json::to_vec(&DisperserActions::PostBatch(
+                        state.sequenced.clone(),
+                    ))?)
+                    .send()?;
                 Ok(())
             }
         }
