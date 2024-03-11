@@ -359,6 +359,7 @@ dependencies = [
  "alloy-signer",
  "anyhow",
  "bincode",
+ "k256",
  "kinode_process_lib",
  "serde",
  "serde_json",
