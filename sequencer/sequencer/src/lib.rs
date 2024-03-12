@@ -33,18 +33,20 @@ enum AdminActions {
     Disperse,
 }
 
-fn save_rollup_state(state: &RollupState) {
+pub fn save_rollup_state(state: &RollupState) {
     set_state(&bincode::serialize(&state).unwrap());
     // NOTE this function also needs to include logic for pushing to some DA layer
 }
 
-fn load_rollup_state() -> RollupState {
+pub fn load_rollup_state() -> RollupState {
     match get_typed_state(|bytes| Ok(bincode::deserialize::<RollupState>(bytes)?)) {
         Some(rs) => rs,
         None => RollupState {
             sequenced: Vec::new(),
             balances: HashMap::new(),
             withdrawals: Vec::new(),
+            pending_games: HashMap::new(),
+            games: HashMap::new(),
         },
     }
 }
