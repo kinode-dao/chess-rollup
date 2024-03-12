@@ -1,18 +1,19 @@
 #![feature(let_chains)]
 use alloy_primitives::{address, FixedBytes, Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
-use kinode_process_lib::eth::{EthAddress, EthSubEvent, SubscribeLogsRequest};
+use kinode_process_lib::eth;
 use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
     await_message, call_init, get_blob, get_typed_state, http, println, set_state,
     vfs::{create_drive, create_file},
-    Address, Message, NodeId, Request,
+    Address, Message, Request,
 };
 use serde::{Deserialize, Serialize};
 use sp1_core::SP1Stdin;
 use std::collections::HashMap;
-use std::str::FromStr;
 
+mod dac;
+use dac::*;
 mod prover_types;
 use prover_types::ProveRequest;
 mod tx;
@@ -30,15 +31,6 @@ sol! {
 enum AdminActions {
     Prove,
     Disperse,
-}
-
-type BatchId = U256;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum DisperserActions {
-    AddClient((NodeId, EthAddress)),
-    PostBatch(Vec<WrappedTransaction>),
-    PullBatch(BatchId),
 }
 
 fn save_rollup_state(state: &RollupState) {
@@ -79,14 +71,30 @@ fn initialize(our: Address) {
     let mut state: RollupState = load_rollup_state();
     let mut connection: Option<u32> = None;
 
-    let _ = SubscribeLogsRequest::new(1) // subscription id 1
-        .address(EthAddress::from_str("0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b").unwrap())
-        .from_block(0) // state.block - 1
+    let eth_provider = eth::Provider::new(11155111, 60); // sepolia, 60s timeout
+    let filter = eth::Filter::new()
+        .address(
+            "0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b"
+                .parse::<eth::Address>()
+                .unwrap(),
+        )
+        .from_block(0)
+        .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
             "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
-        ])
-        .send()
-        .unwrap();
+        ]);
+
+    loop {
+        match eth_provider.subscribe(1, filter.clone()) {
+            Ok(()) => break,
+            Err(_) => {
+                println!("failed to subscribe to chain! trying again in 5s...");
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                continue;
+            }
+        }
+    }
+    println!("subscribed to logs successfully");
 
     main_loop(&our, &mut state, &mut connection);
 }
@@ -178,8 +186,8 @@ fn handle_request(
                 else {
                     return Err(anyhow::anyhow!("expected WebSocketExtPushData"));
                 };
-                let drive_path: String = create_drive(our.package_id(), "proofs")?;
-                let proof_file = create_file(&format!("{}/proof.json", &drive_path))?;
+                let drive_path: String = create_drive(our.package_id(), "proofs", Some(5))?;
+                let proof_file = create_file(&format!("{}/proof.json", &drive_path), Some(5))?;
                 proof_file.write(&blob)?;
                 // TODO verify this proof on some blockchain
                 Ok(())
@@ -187,12 +195,14 @@ fn handle_request(
         }
     } else if message.source().node == our.node && message.source().process == "eth:distro:sys" {
         println!("got eth message");
-        let Ok(msg) = serde_json::from_slice::<EthSubEvent>(message.body()) else {
+        let Ok(Ok(eth::EthSub { result, .. })) =
+            serde_json::from_slice::<eth::EthSubResult>(message.body())
+        else {
             return Err(anyhow::anyhow!("kns_indexer: got invalid message"));
         };
 
-        let EthSubEvent::Log(log) = msg else {
-            return Err(anyhow::anyhow!("kns_indexer: got invalid message"));
+        let eth::SubscriptionResult::Log(log) = result else {
+            panic!("expected log");
         };
 
         // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up

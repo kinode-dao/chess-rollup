@@ -2,42 +2,21 @@
 use alloy_primitives::{Address as EthAddress, Signature, U256};
 use kinode_process_lib::{
     await_message, call_init, get_typed_state, println, set_state, Address, Message, NodeId,
-    Request, Response,
+    Request,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+mod dac;
+use dac::*;
 mod tx;
 use tx::WrappedTransaction;
-
-type BatchId = U256;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DisperserState {
     batches: HashMap<BatchId, Vec<WrappedTransaction>>,
     clients: HashSet<(NodeId, EthAddress)>, // TODO DAC needs to be on-chain
     signatures: HashMap<BatchId, HashMap<NodeId, Signature>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum DisperserActions {
-    AddClient((NodeId, EthAddress)),
-    PostBatch(Vec<WrappedTransaction>),
-    PullBatch(BatchId),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BatchVerificationContext {
-    who: NodeId,
-    batch: BatchId,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct BatchVerification {
-    batch_id: BatchId,
-    sig: Signature,
-    // TODO they probably need to sign a more complex message to avoid replay attacks etc.
-    // maybe just make it EIP712 compliant?
 }
 
 fn save_rollup_state(state: &DisperserState) {
@@ -132,16 +111,28 @@ fn handle_request(
             Ok(())
         }
         DisperserActions::AddClient(client) => {
-            state.clients.insert(client);
+            match Request::new()
+                .target((client.clone(), "client", "dac", "goldfinger.os"))
+                .body(serde_json::to_vec(&DacRequest::JoinDac)?)
+                .send_and_await_response(5)
+                .unwrap()
+                .unwrap()
+            {
+                Message::Response { body, .. } => {
+                    // maybe this is overcomplicated and retarded and I should just add the client's eth address manually
+                    let eth_address = serde_json::from_slice::<EthAddress>(&body)?;
+                    println!("added client {} to DAC", client);
+                    state.clients.insert((client, eth_address));
+                }
+                SendError => {
+                    println!("error adding client {} to DAC", client);
+                }
+                _ => {
+                    println!("error adding client {} to DAC", client);
+                }
+            }
+
             save_rollup_state(state);
-            Ok(())
-        }
-        DisperserActions::PullBatch(batch_id) => {
-            let batch = state.batches.get(&batch_id).unwrap();
-            let _ = Response::new()
-                .body(serde_json::to_vec(&batch)?)
-                .send()
-                .unwrap();
             Ok(())
         }
     }
@@ -153,7 +144,7 @@ fn handle_response(
     body: &[u8],
     _state: &mut DisperserState,
 ) -> anyhow::Result<()> {
-    let verification = serde_json::from_slice::<BatchVerification>(body)?;
+    let _verification = serde_json::from_slice::<BatchVerificationContext>(body)?;
     println!("TODO verify signature");
     Ok(())
 }
