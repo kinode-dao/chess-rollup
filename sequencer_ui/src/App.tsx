@@ -22,6 +22,9 @@ function App() {
   const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [transferAmount, setTransferAmount] = useState(4);
 
+  const [requestTo, setRequestTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
+  const [wagerAmount, setWagerAmount] = useState(4);
+
   // get balances
   useEffect(() => {
     // new UqbarEncryptorApi({
@@ -34,6 +37,7 @@ function App() {
     fetch(`${BASE_URL}/rpc`)
       .then((res) => res.json())
       .then((state) => {
+        console.log(state);
         set({ ...state });
       })
       .catch(console.error);
@@ -56,6 +60,34 @@ function App() {
             from: account.toLowerCase(),
             to: transferTo.toLowerCase(),
             amount: BigNumber.from(transferAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+          },
+        }
+
+        await sendTx(tx, account, `${BASE_URL}/rpc`);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [balances, transferAmount, transferTo, setTransferAmount, setTransferTo, set]
+  );
+
+  const proposeGame = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!window.ethereum) {
+        console.error('Ethereum wallet is not connected');
+        return;
+      }
+
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const account = accounts[0];
+
+        let tx: TxType = {
+          ProposeGame: {
+            white: account,
+            black: requestTo.toLowerCase(),
+            wager: BigNumber.from(wagerAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
           },
         }
 
@@ -90,7 +122,8 @@ function App() {
         <h4 className="m-2">Pending Games</h4>
         <div className="flex flex-col overflow-scroll">
           {Object.keys(pending_games).map((gameId, i) => {
-            const { white, black, wager } = games[gameId]; // accepted
+            console.log(pending_games[gameId]);
+            const { white, black, wager } = pending_games[gameId]; // accepted
             return <p key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</p>
           })}
         </div>
@@ -106,6 +139,23 @@ function App() {
               type="number"
               value={transferAmount}
               onChange={(e) => setTransferAmount(Number(e.target.value))}
+            />
+            <button type="submit">Transfer</button>
+          </form>
+        </div>
+      </div>
+      {/*  */}
+      <div
+        className="flex flex-col items-center"
+      >
+        <h4 className="m-2">Propose Game</h4>
+        <div className="flex flex-col overflow-scroll">
+          <form onSubmit={proposeGame}>
+            <input type="text" placeholder="opponent" value={transferTo} onChange={(e) => setRequestTo(e.target.value)} />
+            <input
+              type="number"
+              value={transferAmount}
+              onChange={(e) => setWagerAmount(Number(e.target.value))}
             />
             <button type="submit">Transfer</button>
           </form>
