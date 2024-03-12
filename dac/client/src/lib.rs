@@ -1,14 +1,11 @@
-use alloy_primitives::{Signature, B256, U256};
+use alloy_primitives::B256;
 use alloy_signer::Signer;
 use alloy_signer::{SignerSync, Wallet};
 use k256::ecdsa::SigningKey;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::str::FromStr;
 
-use kinode_process_lib::{
-    await_message, call_init, println, Address, ProcessId, Request, Response,
-};
+use kinode_process_lib::{await_message, call_init, println, Address, Response};
 
 mod dac;
 use dac::*;
@@ -73,18 +70,38 @@ fn handle_message(
 
     let body = message.body();
     let source = message.source();
-    let batch: Vec<WrappedTransaction> = serde_json::from_slice(body)?;
-    state.batches.insert(U256::from(state.batches.len()), batch);
 
-    // TODO since body will be a ton of data at some point, I need to hash body
-    // let hash = alloy_primitives::utils::eip191_hash_message(body); // this is potentially a lot of data...
+    match serde_json::from_slice::<DacRequest>(body)? {
+        DacRequest::JoinDac => {
+            println!("dac: got post batch");
+            let _ = Response::new()
+                .body(serde_json::to_vec(&DacResponse::JoinDac(wallet.address()))?)
+                .send()
+                .unwrap();
+        }
+        DacRequest::VerifyBatch { batch_id, txs } => {
+            state.batches.insert(batch_id, txs.clone());
+            // TODO since body will be a ton of data at some point, I need to hash body
+            // let hash = alloy_primitives::utils::eip191_hash_message(body); // this is potentially a lot of data...
+            let _ = Response::new()
+                .body(serde_json::to_vec(&DacResponse::BatchVerification {
+                    batch_id,
+                    sig: wallet
+                        .sign_message_sync(&serde_json::to_vec(&txs)?)
+                        .unwrap(),
+                })?)
+                .send()
+                .unwrap();
+        }
+        DacRequest::ReadBatch(batch_id) => {
+            let _ = Response::new()
+                .body(serde_json::to_vec(
+                    state.batches.get(&batch_id).unwrap_or(&vec![]),
+                )?)
+                .send()
+                .unwrap();
+        }
+    }
 
-    let _ = Response::new()
-        .body(serde_json::to_vec(&DacResponse::BatchVerification {
-            batch_id: U256::from(state.batches.len() - 1),
-            sig: wallet.sign_message_sync(body).unwrap(),
-        })?)
-        .send()?;
-    // TODO need a message for reading the data
     Ok(())
 }
