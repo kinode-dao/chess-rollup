@@ -1,6 +1,22 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
+export interface PendingGame {
+  white: string;
+  black: string;
+  accepted: [boolean, boolean];
+  wager: string;
+}
+
+export interface Game {
+  turns: number;
+  board: string;
+  white: string;
+  black: string;
+  wager: string;
+  // could add move history?
+}
+
 export interface WrappedTransaction {
   pub_key: string; // Converted camelCase for TypeScript conventions
   sig: Sig;
@@ -16,8 +32,6 @@ export type Sig = {
 
 // For the `TxType` enum, TypeScript uses a combination of types and interfaces to achieve similar functionality.
 export type TxType =
-  | { BridgeTokens: string } // BigNumber
-  | { WithdrawTokens: string } // BigNumber
   | {
     Transfer: {
       from: string;
@@ -26,21 +40,42 @@ export type TxType =
     }
   }
   | {
-    Mint: {
-      to: string;
-      amount: string; // BigNumber
+    ProposeGame: {
+      white: string;
+      black: string;
+      wager: string; // BigNumber
     }
+  }
+  | {
+    StartGame: string;
+  }
+  | {
+    Move: {
+      game_id: string;
+      san: string;
+    }
+  }
+  | {
+    ClaimWin: string;
   };
 
 export interface SequencerStore {
+  sequenced: WrappedTransaction[]
   balances: Record<string, number>
+  withdrawals: any, // TODO
+  pending_games: Record<string, PendingGame>
+  games: Record<string, Game>
   set: (partial: SequencerStore | Partial<SequencerStore>) => void
 }
 
 const useSequencerStore = create<SequencerStore>()(
   persist(
     (set) => ({  // get
+      sequenced: [],
       balances: {},
+      withdrawals: [],
+      pending_games: {},
+      games: {},
       set,
     }),
     {
