@@ -253,7 +253,6 @@ function App() {
                 return (
                   <div key={i}>
                     <p>{`Your move vs ${black}`}</p>
-                    {/* TODO render board */}
                     <Chessboard
                       // boardWidth={boardWidth - 16}
                       position={board}
