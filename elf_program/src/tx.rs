@@ -226,7 +226,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                 return Err(anyhow::anyhow!("game is not over"));
             }
 
-            games.remove(&game_id);
+            state.games.remove(&game_id);
             Ok(())
         }
     }
