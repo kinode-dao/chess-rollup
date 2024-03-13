@@ -5,10 +5,12 @@ import {
   useState,
 } from "react";
 // import UqbarEncryptorApi from "@uqbar/client-encryptor-api";
-import useSequencerStore, { WrappedTransaction, TxType } from "./store";
+import useSequencerStore, { TxType, WrappedTransaction } from "./store";
 import { ethers, BigNumber } from "ethers";
 import sendTx from "./tx";
 import { useWeb3React } from '@web3-react/core'
+import { ConnectionType } from './libs/connections'
+import { ConnectionOptions } from './libs/components/ConnectionOptions'
 
 declare global {
   var window: Window & typeof globalThis;
@@ -19,7 +21,9 @@ const BASE_URL = import.meta.env.BASE_URL;
 if (window.our) window.our.process = BASE_URL?.replace("/", "");
 
 function App() {
-  const { chainId, account, isActive } = useWeb3React()
+  const { chainId, account, isActive, provider } = useWeb3React()
+  const [connectionType, setConnectionType] = useState<ConnectionType | null>(null)
+
   const { balances, pending_games, games, set } = useSequencerStore();
   const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [transferAmount, setTransferAmount] = useState(4);
@@ -39,7 +43,7 @@ function App() {
     fetch(`${BASE_URL}/rpc`)
       .then((res) => res.json())
       .then((state) => {
-        console.log(state);
+        console.log('state', state);
         set({ ...state });
       })
       .catch(console.error);
@@ -48,15 +52,14 @@ function App() {
   const transfer = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (!window.ethereum) {
+      if (!account || !provider) {
+        console.log('account', account)
+        console.log("provider", provider)
         console.error('Ethereum wallet is not connected');
         return;
       }
 
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
-
         let tx: TxType = {
           Transfer: {
             from: account.toLowerCase(),
@@ -65,36 +68,72 @@ function App() {
           },
         }
 
-        await sendTx(tx, account, `${BASE_URL}/rpc`);
+        const signature = await provider.getSigner().signMessage(JSON.stringify(tx));
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        let wtx: WrappedTransaction = {
+          pub_key: account,
+          sig: {
+            r, s, v
+          },
+          data: tx
+        };
+
+        const receipt = await fetch(`${BASE_URL}/rpc`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(wtx),
+        });
+        console.log('receipt', receipt);
       } catch (err) {
         console.error(err);
       }
     },
-    [balances, transferAmount, transferTo, setTransferAmount, setTransferTo, set]
+    [account, provider, balances, transferAmount, transferTo, setTransferAmount, setTransferTo, set]
   );
 
   const proposeGame = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       try {
-        if (!account) {
+        if (!account || !provider) {
           window.alert('Ethereum wallet is not connected');
           return;
         }
         let tx: TxType = {
           ProposeGame: {
-            white: account,
+            white: account.toLowerCase(),
             black: requestTo.toLowerCase(),
             wager: BigNumber.from(wagerAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
           },
         }
 
-        await sendTx(tx, account, `${BASE_URL}/rpc`);
+        const signature = await provider.getSigner().signMessage(JSON.stringify(tx));
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        let wtx: WrappedTransaction = {
+          pub_key: account,
+          sig: {
+            r, s, v
+          },
+          data: tx
+        };
+
+        const receipt = await fetch(`${BASE_URL}/rpc`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(wtx),
+        });
+        console.log('receipt', receipt);
       } catch (err) {
         console.error(err);
       }
     },
-    [balances, transferAmount, transferTo, setTransferAmount, setTransferTo, set]
+    [account, provider, balances, transferAmount, transferTo, setTransferAmount, setTransferTo, set]
   );
 
   return (
@@ -102,8 +141,21 @@ function App() {
       className="justify-center items-center"
     >
       <h4 className="m-4 row justify-center">
-        {`Sequencer; connected wallet: ${account}; chainId: ${chainId}; active: ${isActive}`}
+        Chess Sequencer
       </h4>
+      <h4 className="m-4 row justify-center">
+        {account ? `${account}` : "no wallet connected"}
+      </h4>
+      <div
+        className="flex flex-col items-center"
+      >
+        <ConnectionOptions
+          activeConnectionType={connectionType}
+          isConnectionActive={isActive}
+          onActivate={setConnectionType}
+          onDeactivate={setConnectionType}
+        />
+      </div>
       <div
         className="flex flex-col items-center"
       >
@@ -120,9 +172,22 @@ function App() {
         <h4 className="m-2">Pending Games</h4>
         <div className="flex flex-col overflow-scroll">
           {Object.keys(pending_games).map((gameId, i) => {
-            console.log(pending_games[gameId]);
             const { white, black, wager } = pending_games[gameId]; // accepted
-            return <p key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</p>
+            if (account == black) {
+              return (
+                <div key={i}>
+                  <p>{`You have been challenged by ${white} for ${BigNumber.from(wager)} WEI`}</p>
+                  <button onClick={() => {
+                    let tx: TxType = {
+                      StartGame: gameId,
+                    }
+                    sendTx(tx, account, `${BASE_URL}/rpc`);
+                  }}>Accept</button>
+                </div>
+              )
+            } else {
+              return <p key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</p>
+            }
           })}
         </div>
       </div>
@@ -149,10 +214,10 @@ function App() {
         <h4 className="m-2">Propose Game</h4>
         <div className="flex flex-col overflow-scroll">
           <form onSubmit={proposeGame}>
-            <input type="text" placeholder="opponent" value={transferTo} onChange={(e) => setRequestTo(e.target.value)} />
+            <input type="text" placeholder="opponent" value={requestTo} onChange={(e) => setRequestTo(e.target.value)} />
             <input
               type="number"
-              value={transferAmount}
+              value={wagerAmount}
               onChange={(e) => setWagerAmount(Number(e.target.value))}
             />
             <button type="submit">Transfer</button>
