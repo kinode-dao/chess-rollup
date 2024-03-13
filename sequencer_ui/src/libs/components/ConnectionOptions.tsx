@@ -19,13 +19,12 @@ export const ConnectionOptions = ({
 }: ConnectOptionsParams) => {
     function getOptions(isActive: boolean) {
         const hasMetaMaskExtension = getHasMetaMaskExtensionInstalled()
-
         const isNoOptionActive = !isActive || (isActive && activeConnectionType === null)
 
         const metaMaskOption = hasMetaMaskExtension ? (
             <Option
                 isEnabled={isNoOptionActive || activeConnectionType === ConnectionType.INJECTED}
-                isConnected={activeConnectionType === ConnectionType.INJECTED}
+                isConnected={isConnectionActive}
                 connectionType={ConnectionType.INJECTED}
                 onActivate={onActivate}
                 onDeactivate={onDeactivate}

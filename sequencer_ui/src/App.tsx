@@ -12,6 +12,7 @@ import { useWeb3React } from '@web3-react/core'
 import { ConnectionType } from './libs/connections'
 import { ConnectionOptions } from './libs/components/ConnectionOptions'
 import { Chessboard } from "react-chessboard";
+import NavBar from "./components/Navbar";
 
 declare global {
   var window: Window & typeof globalThis;
@@ -32,7 +33,6 @@ function App() {
   const [black, setBlack] = useState('0x6de4ff647646d9faaf1e40dcddf6ad231f696af6');
   const [wagerAmount, setWagerAmount] = useState(4);
 
-  // get balances
   useEffect(() => {
     // new UqbarEncryptorApi({
     //   uri: WEBSOCKET_URL,
@@ -188,36 +188,10 @@ function App() {
     <div
       className="justify-center items-center"
     >
-      <h4 className="m-4 row justify-center">
-        Chess Sequencer
-      </h4>
-      <h4 className="m-4 row justify-center">
-        {account ? `${account}` : "no wallet connected"}
-      </h4>
+      <NavBar balances={balances} />
       <div
         className="flex flex-col items-center"
       >
-        <ConnectionOptions
-          activeConnectionType={connectionType}
-          isConnectionActive={isActive}
-          onActivate={setConnectionType}
-          onDeactivate={setConnectionType}
-        />
-      </div>
-      <div
-        className="flex flex-col items-center"
-      >
-        <h4 className="m-2">Balances</h4>
-        <div className="flex flex-col overflow-scroll">
-          {Object.keys(balances).map((address, i) => (
-            <p key={i}>{`${address}: ${BigNumber.from(balances[address])} WEI`}</p>
-          ))}
-        </div>
-      </div>
-      <div
-        className="flex flex-col items-center"
-      >
-        <h4 className="m-2">Pending Games</h4>
         <div className="flex flex-col overflow-scroll">
           {Object.keys(pending_games).map((gameId, i) => {
             const { white, black, wager } = pending_games[gameId]; // accepted
@@ -234,7 +208,7 @@ function App() {
                 </div>
               )
             } else {
-              return <p key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</p>
+              return <></>
             }
           })}
         </div>
@@ -276,7 +250,7 @@ function App() {
               } else {
                 return (
                   <div key={i}>
-                    <p>{`Waiting for ${turns % 2 == 0 ? white : black} to move`}</p>
+                    <code>{`Waiting for ${turns % 2 == 0 ? white : black} to move`}</code>
                     <Chessboard
                       // boardWidth={boardWidth - 16}
                       position={board}
@@ -287,7 +261,7 @@ function App() {
                 )
               }
             } else {
-              return <p key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</p>
+              return <code key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</code>
             }
           })}
         </div>
@@ -301,7 +275,7 @@ function App() {
           <form onSubmit={transfer}>
             <input type="text" placeholder="to" value={transferTo} onChange={(e) => setTransferTo(e.target.value)} />
             <input
-              type="number"
+              type="text"
               value={transferAmount}
               onChange={(e) => setTransferAmount(Number(e.target.value))}
             />
@@ -318,7 +292,7 @@ function App() {
           <form onSubmit={proposeGame}>
             <input type="text" placeholder="opponent" value={black} onChange={(e) => setBlack(e.target.value)} />
             <input
-              type="number"
+              type="text"
               value={wagerAmount}
               onChange={(e) => setWagerAmount(Number(e.target.value))}
             />
