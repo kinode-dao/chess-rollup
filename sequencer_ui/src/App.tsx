@@ -30,15 +30,28 @@ function App() {
   }, []);
 
   return (
-    <div
-      className="justify-center items-center"
-    >
-      <NavBar />
-      <PendingGames baseUrl={BASE_URL} />
-      <MyGames baseUrl={BASE_URL} />
-      <Transfer baseUrl={BASE_URL} />
-      <ProposeGame baseUrl={BASE_URL} />
-    </div>
+    <>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="col-span-3">
+          <NavBar />
+        </div>
+        <div className="col-span-1">
+          <div className="bg-gray-200 py-4 px-2">
+            <Transfer baseUrl={BASE_URL} />
+          </div>
+          <div className="bg-gray-200 py-4 px-2">
+            <ProposeGame baseUrl={BASE_URL} />
+          </div>
+          <div className="bg-gray-200 py-4 px-2">
+            <PendingGames baseUrl={BASE_URL} />
+          </div>
+        </div>
+        <div className="col-span-2">
+          <MyGames baseUrl={BASE_URL} />
+        </div>
+      </div>
+    </>
   );
 }
 

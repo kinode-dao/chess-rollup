@@ -102,7 +102,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                         // boardWidth={boardWidth - 16}
                                         position={board}
                                         onPieceDrop={(_) => false}
-                                        boardOrientation="black"
+                                        boardOrientation={turns % 2 == 0 ? 'black' : 'white'}
                                     />
                                 </div>
                             )

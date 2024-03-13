@@ -59,9 +59,7 @@ const Transfer = ({ baseUrl }: TransferProps) => {
     );
 
     return (
-        <div
-            className="flex flex-col items-center"
-        >
+        <div>
             <h4 className="m-2">Transfer</h4>
             <div className="flex flex-col overflow-scroll">
                 <form onSubmit={transfer}>

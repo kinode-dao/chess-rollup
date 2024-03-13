@@ -57,9 +57,7 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
 
 
     return (
-        <div
-            className="flex flex-col items-center"
-        >
+        <div>
             <h4 className="m-2">Propose Game</h4>
             <div className="flex flex-col overflow-scroll">
                 <form onSubmit={proposeGame}>

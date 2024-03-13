@@ -59,12 +59,12 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                     if (account?.toLowerCase() == black.toLowerCase()) {
                         return (
                             <div key={i}>
-                                <p>{`You have been challenged by ${white} for ${BigNumber.from(wager)} WEI`}</p>
+                                <code>{`You have been challenged by ${white} for ${BigNumber.from(wager)} WEI`}</code>
                                 <button onClick={() => acceptGame(gameId)}>Accept</button>
                             </div>
                         )
                     } else {
-                        return <></>
+                        return <div key={i}></div>
                     }
                 })}
             </div>
