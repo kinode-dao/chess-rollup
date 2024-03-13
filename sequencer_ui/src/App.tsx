@@ -25,10 +25,10 @@ function App() {
   const [connectionType, setConnectionType] = useState<ConnectionType | null>(null)
 
   const { balances, pending_games, games, set } = useSequencerStore();
-  const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
+  const [transferTo, setTransferTo] = useState('0x6de4ff647646d9faaf1e40dcddf6ad231f696af6');
   const [transferAmount, setTransferAmount] = useState(4);
 
-  const [requestTo, setRequestTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
+  const [black, setBlack] = useState('0x6de4ff647646d9faaf1e40dcddf6ad231f696af6');
   const [wagerAmount, setWagerAmount] = useState(4);
 
   // get balances
@@ -105,7 +105,7 @@ function App() {
         let tx: TxType = {
           ProposeGame: {
             white: account.toLowerCase(),
-            black: requestTo.toLowerCase(),
+            black: black.toLowerCase(),
             wager: BigNumber.from(wagerAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
           },
         }
@@ -173,7 +173,7 @@ function App() {
         <div className="flex flex-col overflow-scroll">
           {Object.keys(pending_games).map((gameId, i) => {
             const { white, black, wager } = pending_games[gameId]; // accepted
-            if (account == black) {
+            if (account?.toLowerCase() == black.toLowerCase()) {
               return (
                 <div key={i}>
                   <p>{`You have been challenged by ${white} for ${BigNumber.from(wager)} WEI`}</p>
@@ -214,13 +214,13 @@ function App() {
         <h4 className="m-2">Propose Game</h4>
         <div className="flex flex-col overflow-scroll">
           <form onSubmit={proposeGame}>
-            <input type="text" placeholder="opponent" value={requestTo} onChange={(e) => setRequestTo(e.target.value)} />
+            <input type="text" placeholder="opponent" value={black} onChange={(e) => setBlack(e.target.value)} />
             <input
               type="number"
               value={wagerAmount}
               onChange={(e) => setWagerAmount(Number(e.target.value))}
             />
-            <button type="submit">Transfer</button>
+            <button type="submit">Propose Game</button>
           </form>
         </div>
       </div>
