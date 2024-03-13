@@ -127,7 +127,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
             Ok(())
         }
         TxType::StartGame(game_id) => {
-            let Some(pending_game) = state.pending_games.remove(&game_id) else {
+            let Some(pending_game) = state.pending_games.get(&game_id) else {
                 return Err(anyhow::anyhow!("game id doesn't exist"));
             };
             if pending_game.accepted == (true, false) {
@@ -172,6 +172,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                     wager: pending_game.wager * U256::from(2),
                 },
             );
+            state.pending_games.remove(&game_id);
             state.sequenced.push(tx);
             Ok(())
         }
@@ -225,7 +226,7 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                 return Err(anyhow::anyhow!("game is not over"));
             }
 
-            game.wager = U256::ZERO;
+            games.remove(&game_id);
             Ok(())
         }
     }

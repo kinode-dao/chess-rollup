@@ -314,7 +314,8 @@ fn handle_http_request(
     //     return Ok(());
     // }
     match http_request.method()?.as_str() {
-        // on GET: view balances
+        // on GET: view state
+        // TODO: better read api
         "GET" => {
             println!("sequencer: got GET request, returning balances...");
             http::send_response(
@@ -323,7 +324,7 @@ fn handle_http_request(
                     String::from("Content-Type"),
                     String::from("application/json"),
                 )])),
-                serde_json::to_vec(&state.balances)?,
+                serde_json::to_vec(&state)?,
             );
             Ok(())
         }
