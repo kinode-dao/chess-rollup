@@ -1,15 +1,13 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useWeb3React } from "@web3-react/core";
 import { ConnectionOptions } from '../libs/components/ConnectionOptions'
 import { ConnectionType } from '../libs/connections'
 import { BigNumber } from 'ethers'
+import useSequencerStore from "../store";
 
-interface NavBarProps {
-    balances: Record<string, number>
-}
-
-const NavBar = ({ balances }: NavBarProps) => {
+const NavBar = () => {
     let { account, isActive } = useWeb3React();
+    let { balances } = useSequencerStore();
     const [connectionType, setConnectionType] = useState<ConnectionType | null>(null)
 
     return (
