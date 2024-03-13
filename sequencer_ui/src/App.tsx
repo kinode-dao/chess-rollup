@@ -8,6 +8,7 @@ import {
 import useSequencerStore, { WrappedTransaction, TxType } from "./store";
 import { ethers, BigNumber } from "ethers";
 import sendTx from "./tx";
+import { useWeb3React } from '@web3-react/core'
 
 declare global {
   var window: Window & typeof globalThis;
@@ -18,6 +19,7 @@ const BASE_URL = import.meta.env.BASE_URL;
 if (window.our) window.our.process = BASE_URL?.replace("/", "");
 
 function App() {
+  const { chainId, account, isActive } = useWeb3React()
   const { balances, pending_games, games, set } = useSequencerStore();
   const [transferTo, setTransferTo] = useState('0x95222290dd7278aa3ddd389cc1e1d165cc4bafe5');
   const [transferAmount, setTransferAmount] = useState(4);
@@ -74,15 +76,11 @@ function App() {
   const proposeGame = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (!window.ethereum) {
-        console.error('Ethereum wallet is not connected');
-        return;
-      }
-
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
-
+        if (!account) {
+          window.alert('Ethereum wallet is not connected');
+          return;
+        }
         let tx: TxType = {
           ProposeGame: {
             white: account,
@@ -104,7 +102,7 @@ function App() {
       className="justify-center items-center"
     >
       <h4 className="m-4 row justify-center">
-        Sequencer
+        {`Sequencer; connected wallet: ${account}; chainId: ${chainId}; active: ${isActive}`}
       </h4>
       <div
         className="flex flex-col items-center"
