@@ -2528,10 +2528,10 @@ queue-microtask@^1.2.2:
   resolved "https://registry.npmjs.org/queue-microtask/-/queue-microtask-1.2.3.tgz"
   integrity sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==
 
-react-chessboard@^4.2.1:
-  version "4.3.4"
-  resolved "https://registry.npmjs.org/react-chessboard/-/react-chessboard-4.3.4.tgz"
-  integrity sha512-ggL9ah7YKcgjens4N3b/aZvAd0wLo1p03JDjBOpU9XTZpkCXfj9d+ZjxAE/F/nDPtYaJ33bm5XfL41gTr+IlgQ==
+react-chessboard@^4.5.0:
+  version "4.5.0"
+  resolved "https://registry.npmjs.org/react-chessboard/-/react-chessboard-4.5.0.tgz"
+  integrity sha512-YS91zFMZlaW05vIFOAkM2KnR5wp/sqBCzglUe1GJrXOtVkxzDT7Tr6cetm2txMGmSwdFQgurIi2/wKV1YQs34w==
   dependencies:
     react-dnd "^16.0.1"
     react-dnd-html5-backend "^16.0.1"
