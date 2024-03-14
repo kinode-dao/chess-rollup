@@ -80,7 +80,7 @@ fn initialize(our: Address) {
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .from_block(0)
+        .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
             "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
@@ -108,7 +108,7 @@ fn main_loop(our: &Address, state: &mut RollupState, connection: &mut Option<u32
                 println!("{our}: got network error: {send_error:?}");
                 continue;
             }
-            Ok(message) => match handle_request(&our, &message, state, connection) {
+            Ok(message) => match handle_message(&our, &message, state, connection) {
                 Ok(()) => continue,
                 Err(e) => println!("{our}: error handling request: {:?}", e),
             },
@@ -116,7 +116,7 @@ fn main_loop(our: &Address, state: &mut RollupState, connection: &mut Option<u32
     }
 }
 
-fn handle_request(
+fn handle_message(
     our: &Address,
     message: &Message,
     state: &mut RollupState,
@@ -127,8 +127,9 @@ fn handle_request(
         return Ok(());
     }
     if message.source().node != our.node {
-        // this is basically where we need to handle cross rollup messages
         println!("got cross rollup message, implementation is TODO");
+        // first verify that this message was posted to DA
+        // then sequence it
         return Ok(());
     } else if message.source().node == our.node
         && message.source().process == "http_server:distro:sys"
@@ -196,103 +197,9 @@ fn handle_request(
             }
         }
     } else if message.source().node == our.node && message.source().process == "eth:distro:sys" {
-        println!("got eth message");
-        let Ok(Ok(eth::EthSub { result, .. })) =
-            serde_json::from_slice::<eth::EthSubResult>(message.body())
-        else {
-            return Err(anyhow::anyhow!("kns_indexer: got invalid message"));
-        };
-
-        let eth::SubscriptionResult::Log(log) = result else {
-            panic!("expected log");
-        };
-
-        // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up
-        match FixedBytes::<32>::new(log.topics[0].as_slice().try_into().unwrap()) {
-            DepositMade::SIGNATURE_HASH => {
-                println!("deposit event");
-                // let event = DepositMade::from_log(&log)?;
-                let deposit = DepositMade::abi_decode_data(&log.data, true).unwrap();
-                let rollup_id = deposit.0;
-                let token_contract = deposit.1;
-                let token_id = deposit.2;
-                let uqbar_dest = deposit.3;
-                let amount = deposit.4;
-                let _block_number = deposit.5;
-                let _prev_deposit_root = deposit.6;
-                if rollup_id != U256::ZERO {
-                    return Err(anyhow::anyhow!("not handling rollup deposits"));
-                }
-                if token_contract != address!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
-                    return Err(anyhow::anyhow!("only handling ETH deposits"));
-                }
-                if token_id != U256::ZERO {
-                    return Err(anyhow::anyhow!("not handling NFT deposits"));
-                }
-
-                state
-                    .balances
-                    .entry(uqbar_dest)
-                    .and_modify(|balance| *balance += amount)
-                    .or_insert(amount);
-                // NOTE that it is impossible to establish a proper sequence of when bridge transactions get inserted
-                // relative to other transactions => MEV! (if there is any MEV to be done, which I kind of doubt)
-                // the point is that you can prove that these are part of the inputs to the program, and they have to be
-                // sequenced at some point before the batch is over
-                state.sequenced.push(WrappedTransaction {
-                    pub_key: uqbar_dest,
-                    // TODO maybe need to rearchitect bridge transactions because they don't really have a signature
-                    // you could get a signature from the sequencer? That could work! But at the end of the day it
-                    // doesn't matter, you don't need to verify it.
-                    sig: Signature::test_signature(),
-                    data: TxType::BridgeTokens(amount),
-                });
-            }
-            _ => {
-                println!("unknown event");
-            }
-        }
-
-        Ok(())
+        return handle_eth_message(message, state);
     } else if message.source().node == our.node {
-        match serde_json::from_slice::<AdminActions>(message.body())? {
-            AdminActions::Prove => {
-                let Some(channel_id) = connection else {
-                    return Err(anyhow::anyhow!("no connection"));
-                };
-
-                let mut stdin = SP1Stdin::new();
-                stdin.write(&state.sequenced.clone());
-
-                Request::new()
-                    .target("our@http_server:distro:sys".parse::<Address>()?)
-                    .body(serde_json::to_vec(
-                        &http::HttpServerAction::WebSocketExtPushOutgoing {
-                            channel_id: *channel_id,
-                            message_type: http::WsMessageType::Binary,
-                            desired_reply_type: MessageType::Response,
-                        },
-                    )?)
-                    .blob_bytes(bincode::serialize(&ProveRequest {
-                        elf: ELF.to_vec(),
-                        input: stdin,
-                    })?)
-                    .send()
-                    .unwrap();
-                // NOTE the response comes in as a WebSocketPush message
-                Ok(())
-            }
-            AdminActions::Disperse => {
-                // TODO this should probably just happen automatically when Prove is called
-                let _ = Request::new()
-                    .target(("our", "disperser", "rollup", "goldfinger.os"))
-                    .body(serde_json::to_vec(&DisperserActions::PostBatch(
-                        state.sequenced.clone(),
-                    ))?)
-                    .send()?;
-                Ok(())
-            }
-        }
+        return handle_admin_message(message, state, connection);
     } else {
         return Err(anyhow::anyhow!("ignoring request"));
     }
@@ -358,5 +265,111 @@ fn handle_http_request(
             None,
             vec![],
         )),
+    }
+}
+
+fn handle_eth_message(message: &Message, state: &mut RollupState) -> anyhow::Result<()> {
+    println!("got eth message");
+    let Ok(Ok(eth::EthSub { result, .. })) =
+        serde_json::from_slice::<eth::EthSubResult>(message.body())
+    else {
+        return Err(anyhow::anyhow!("kns_indexer: got invalid message"));
+    };
+
+    let eth::SubscriptionResult::Log(log) = result else {
+        panic!("expected log");
+    };
+
+    // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up
+    match FixedBytes::<32>::new(log.topics[0].as_slice().try_into().unwrap()) {
+        DepositMade::SIGNATURE_HASH => {
+            println!("deposit event");
+            // let event = DepositMade::from_log(&log)?;
+            let deposit = DepositMade::abi_decode_data(&log.data, true).unwrap();
+            let rollup_id = deposit.0;
+            let token_contract = deposit.1;
+            let token_id = deposit.2;
+            let uqbar_dest = deposit.3;
+            let amount = deposit.4;
+            let _block_number = deposit.5;
+            let _prev_deposit_root = deposit.6;
+            if rollup_id != U256::ZERO {
+                return Err(anyhow::anyhow!("not handling rollup deposits"));
+            }
+            if token_contract != address!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
+                return Err(anyhow::anyhow!("only handling ETH deposits"));
+            }
+            if token_id != U256::ZERO {
+                return Err(anyhow::anyhow!("not handling NFT deposits"));
+            }
+
+            state
+                .balances
+                .entry(uqbar_dest)
+                .and_modify(|balance| *balance += amount)
+                .or_insert(amount);
+            // NOTE that it is impossible to establish a proper sequence of when bridge transactions get inserted
+            // relative to other transactions => MEV! (if there is any MEV to be done, which I kind of doubt)
+            // the point is that you can prove that these are part of the inputs to the program, and they have to be
+            // sequenced at some point before the batch is over
+            state.sequenced.push(WrappedTransaction {
+                pub_key: uqbar_dest,
+                // TODO maybe need to rearchitect bridge transactions because they don't really have a signature
+                // you could get a signature from the sequencer? That could work! But at the end of the day it
+                // doesn't matter, you don't need to verify it.
+                sig: Signature::test_signature(),
+                data: TxType::BridgeTokens(amount),
+            });
+        }
+        _ => {
+            println!("unknown event");
+        }
+    }
+
+    Ok(())
+}
+
+fn handle_admin_message(
+    message: &Message,
+    state: &mut RollupState,
+    connection: &mut Option<u32>,
+) -> anyhow::Result<()> {
+    match serde_json::from_slice::<AdminActions>(message.body())? {
+        AdminActions::Prove => {
+            let Some(channel_id) = connection else {
+                return Err(anyhow::anyhow!("no connection"));
+            };
+
+            let mut stdin = SP1Stdin::new();
+            stdin.write(&state.sequenced.clone());
+
+            Request::new()
+                .target("our@http_server:distro:sys".parse::<Address>()?)
+                .body(serde_json::to_vec(
+                    &http::HttpServerAction::WebSocketExtPushOutgoing {
+                        channel_id: *channel_id,
+                        message_type: http::WsMessageType::Binary,
+                        desired_reply_type: MessageType::Response,
+                    },
+                )?)
+                .blob_bytes(bincode::serialize(&ProveRequest {
+                    elf: ELF.to_vec(),
+                    input: stdin,
+                })?)
+                .send()
+                .unwrap();
+            // NOTE the response comes in as a WebSocketPush message
+            Ok(())
+        }
+        AdminActions::Disperse => {
+            // TODO this should probably just happen automatically when Prove is called
+            let _ = Request::new()
+                .target(("our", "disperser", "rollup", "goldfinger.os"))
+                .body(serde_json::to_vec(&DisperserActions::PostBatch(
+                    state.sequenced.clone(),
+                ))?)
+                .send()?;
+            Ok(())
+        }
     }
 }
