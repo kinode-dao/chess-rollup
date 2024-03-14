@@ -1,5 +1,3 @@
-import React from 'react'
-
 import { ConnectionType, getConnection, tryActivateConnector, tryDeactivateConnector } from '../connections'
 
 export const Option = ({

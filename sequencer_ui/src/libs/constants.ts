@@ -4,9 +4,9 @@ import { Chain, CurrentConfig } from '../config'
 const MAINNET_CHAIN_ID = 1
 const SEPOLIA_CHAIN_ID = 11155111
 
-export const INPUT_CHAIN_ID = CurrentConfig.chain === Chain.POLYGON ? SEPOLIA_CHAIN_ID : MAINNET_CHAIN_ID
+export const INPUT_CHAIN_ID = CurrentConfig.chain === Chain.SEPOLIA ? SEPOLIA_CHAIN_ID : MAINNET_CHAIN_ID
 export const INPUT_CHAIN_URL =
-    CurrentConfig.chain === Chain.POLYGON ? CurrentConfig.rpc.polygon : CurrentConfig.rpc.mainnet
+    CurrentConfig.chain === Chain.SEPOLIA ? CurrentConfig.rpc.sepolia : CurrentConfig.rpc.mainnet
 
 export const CHAIN_TO_URL_MAP = {
     [SEPOLIA_CHAIN_ID]: CurrentConfig.rpc.sepolia,

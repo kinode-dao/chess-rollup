@@ -1,5 +1,3 @@
-import React from 'react'
-
 import { ConnectionType, getHasMetaMaskExtensionInstalled } from '../connections'
 import { METAMASK_URL } from '../constants'
 import { Option } from './Option'

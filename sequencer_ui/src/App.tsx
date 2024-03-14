@@ -37,13 +37,13 @@ function App() {
           <NavBar />
         </div>
         <div className="col-span-1">
-          <div className="bg-gray-200 py-4 px-2">
+          <div className="py-4 px-2">
             <Transfer baseUrl={BASE_URL} />
           </div>
-          <div className="bg-gray-200 py-4 px-2">
+          <div className="py-4 px-2">
             <ProposeGame baseUrl={BASE_URL} />
           </div>
-          <div className="bg-gray-200 py-4 px-2">
+          <div className="py-4 px-2">
             <PendingGames baseUrl={BASE_URL} />
           </div>
         </div>

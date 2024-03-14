@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import useSequencerStore, { Game, TxType, WrappedTransaction } from "../store";
+import useSequencerStore, { TxType, WrappedTransaction } from "../store";
 import { Chessboard } from "react-chessboard";
 
 interface MyGamesProps {
@@ -14,7 +14,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
     const { games } = useSequencerStore();
 
     const onDrop = useCallback(
-        (sourceSquare: string, targetSquare: string, piece: any, gameId: string) => {
+        (sourceSquare: string, targetSquare: string, gameId: string) => {
             try {
                 if (!account || !provider) {
                     window.alert('Ethereum wallet is not connected');
@@ -77,7 +77,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                     <Chessboard
                                         // boardWidth={boardWidth - 16}
                                         position={board}
-                                        onPieceDrop={(source, target, piece) => onDrop(source, target, piece, gameId)}
+                                        onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
                                         boardOrientation="white"
                                     />
                                 </div>
@@ -89,7 +89,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                     <Chessboard
                                         // boardWidth={boardWidth - 16}
                                         position={board}
-                                        onPieceDrop={(source, target, piece) => onDrop(source, target, piece, gameId)}
+                                        onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
                                         boardOrientation="black"
                                     />
                                 </div>
