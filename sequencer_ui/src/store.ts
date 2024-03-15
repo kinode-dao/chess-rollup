@@ -20,7 +20,7 @@ export interface Game {
 export interface WrappedTransaction {
   pub_key: string; // Converted camelCase for TypeScript conventions
   sig: Sig;
-  data: TxType; // Still a hex string, but consider using ArrayBuffer or similar for binary data handling in JS/TS
+  data: Transaction; // Still a hex string, but consider using ArrayBuffer or similar for binary data handling in JS/TS
   // Additional fields like nonces, value, gas, gasPrice, gasLimit, etc., can be added as needed.
 }
 
@@ -30,8 +30,8 @@ export type Sig = {
   v: number;
 };
 
-// For the `TxType` enum, TypeScript uses a combination of types and interfaces to achieve similar functionality.
-export type TxType =
+// For the `Transaction` enum, TypeScript uses a combination of types and interfaces to achieve similar functionality.
+export type Transaction =
   | {
     Transfer: {
       from: string;
@@ -40,31 +40,35 @@ export type TxType =
     }
   }
   | {
-    ProposeGame: {
-      white: string;
-      black: string;
-      wager: string; // BigNumber
+    Extension: | {
+      ProposeGame: {
+        white: string;
+        black: string;
+        wager: string; // BigNumber
+      }
+    }
+    | {
+      StartGame: string;
+    }
+    | {
+      Move: {
+        game_id: string;
+        san: string;
+      }
+    }
+    | {
+      ClaimWin: string;
     }
   }
-  | {
-    StartGame: string;
-  }
-  | {
-    Move: {
-      game_id: string;
-      san: string;
-    }
-  }
-  | {
-    ClaimWin: string;
-  };
 
 export interface SequencerStore {
   sequenced: WrappedTransaction[]
   balances: Record<string, number>
   withdrawals: any, // TODO
-  pending_games: Record<string, PendingGame>
-  games: Record<string, Game>
+  state: {
+    pending_games: Record<string, PendingGame>
+    games: Record<string, Game>
+  }
   set: (partial: SequencerStore | Partial<SequencerStore>) => void
 }
 
@@ -74,8 +78,10 @@ const useSequencerStore = create<SequencerStore>()(
       sequenced: [],
       balances: {},
       withdrawals: [],
-      pending_games: {},
-      games: {},
+      state: {
+        pending_games: {},
+        games: {},
+      },
       set,
     }),
     {

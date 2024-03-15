@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import useSequencerStore, { TxType, WrappedTransaction } from "../store";
+import useSequencerStore, { Transaction, WrappedTransaction } from "../store";
 
 interface MyGamesProps {
     baseUrl: string;
@@ -10,12 +10,14 @@ interface MyGamesProps {
 
 const MyGames = ({ baseUrl }: MyGamesProps) => {
     let { account, provider } = useWeb3React();
-    const { pending_games } = useSequencerStore();
+    const { state: { pending_games } } = useSequencerStore();
 
     const acceptGame = useCallback(
         async (gameId: string) => {
-            let tx: TxType = {
-                StartGame: gameId,
+            let tx: Transaction = {
+                Extension: {
+                    StartGame: gameId,
+                }
             }
             try {
                 if (!account || !provider) {
@@ -34,7 +36,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                     data: tx
                 };
 
-                const receipt = await fetch(baseUrl, {
+                const receipt = await fetch(`${baseUrl}/rpc`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",

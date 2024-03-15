@@ -2,7 +2,7 @@ import { useState, useCallback, FormEvent } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import { TxType, WrappedTransaction } from "../store";
+import { Transaction, WrappedTransaction } from "../store";
 
 interface TransferProps {
     baseUrl: string;
@@ -24,7 +24,7 @@ const Transfer = ({ baseUrl }: TransferProps) => {
             }
 
             try {
-                let tx: TxType = {
+                let tx: Transaction = {
                     Transfer: {
                         from: account.toLowerCase(),
                         to: transferTo.toLowerCase(),

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import useSequencerStore, { TxType, WrappedTransaction } from "../store";
+import useSequencerStore, { Transaction, WrappedTransaction } from "../store";
 import { Chessboard } from "react-chessboard";
 
 interface MyGamesProps {
@@ -11,7 +11,7 @@ interface MyGamesProps {
 
 const MyGames = ({ baseUrl }: MyGamesProps) => {
     let { account, provider } = useWeb3React();
-    const { games } = useSequencerStore();
+    const { state: { games } } = useSequencerStore();
 
     const onDrop = useCallback(
         (sourceSquare: string, targetSquare: string, gameId: string) => {
@@ -21,11 +21,13 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                     return false;
                 }
                 console.log('san', `${sourceSquare}${targetSquare}`)
-                let tx: TxType = {
-                    Move: {
-                        game_id: gameId,
-                        san: `${sourceSquare}${targetSquare}`,
-                    },
+                let tx: Transaction = {
+                    Extension: {
+                        Move: {
+                            game_id: gameId,
+                            san: `${sourceSquare}${targetSquare}`,
+                        },
+                    }
                 }
 
                 provider.getSigner().signMessage(JSON.stringify(tx)).then((signature) => {

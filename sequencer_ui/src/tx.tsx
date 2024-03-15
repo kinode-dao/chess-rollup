@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
-import { TxType, WrappedTransaction } from './store';
+import { Transaction, WrappedTransaction } from './store';
 
-export default async function sendTx(tx: TxType, account: string, rpcUrl: string) {
+export default async function sendTx(tx: Transaction, account: string, rpcUrl: string) {
     try {
         if (!window.ethereum) {
             console.error('Ethereum wallet is not connected');

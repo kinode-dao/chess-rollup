@@ -2,7 +2,7 @@ import { useState, useCallback, FormEvent } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import { TxType, WrappedTransaction } from "../store";
+import { Transaction, WrappedTransaction } from "../store";
 
 interface ProposeGameProps {
     baseUrl: string;
@@ -21,12 +21,14 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
                     window.alert('Ethereum wallet is not connected');
                     return;
                 }
-                let tx: TxType = {
-                    ProposeGame: {
-                        white: account.toLowerCase(),
-                        black: black.toLowerCase(),
-                        wager: BigNumber.from(wager).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
-                    },
+                let tx: Transaction = {
+                    Extension: {
+                        ProposeGame: {
+                            white: account.toLowerCase(),
+                            black: black.toLowerCase(),
+                            wager: BigNumber.from(wager).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+                        },
+                    }
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));
