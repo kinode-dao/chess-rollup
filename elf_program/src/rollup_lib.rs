@@ -8,11 +8,11 @@ use std::collections::HashMap;
 /// - a list of withdrawals (for use on the provided L1 bridge)
 /// - additional state T, which can be anything
 #[derive(Serialize, Deserialize)]
-pub struct RollupState<T, D> {
-    pub sequenced: Vec<WrappedTransaction<D>>,
+pub struct RollupState<S, T> {
+    pub sequenced: Vec<WrappedTransaction<T>>,
     pub balances: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
-    pub state: T,
+    pub state: S,
 }
 
 /// This is how transactions must be signed and verified for each rollup
@@ -49,4 +49,8 @@ pub enum TransactionData<T> {
         amount: U256,
     },
     Extension(T),
+}
+
+pub trait ExecutionEngine<T> {
+    fn execute(&mut self, tx: WrappedTransaction<T>) -> anyhow::Result<()>;
 }

@@ -11,7 +11,7 @@ pub fn main() {
     let mem_pool = sp1_zkvm::io::read::<Vec<WrappedTransaction<ChessTransactions>>>();
 
     for tx in mem_pool.iter() {
-        chain_event_loop(tx.clone(), &mut state).unwrap();
+        state.execute(tx.clone()).unwrap();
     }
 
     sp1_zkvm::io::write(&state);
