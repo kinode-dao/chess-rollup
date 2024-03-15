@@ -37,9 +37,9 @@ pub enum ChessTransactions {
         black: AlloyAddress,
         wager: U256,
     },
-    StartGame(U256),
+    StartGame(GameId),
     Move {
-        game_id: U256,
+        game_id: GameId,
         san: String,
     },
     ClaimWin(U256),
