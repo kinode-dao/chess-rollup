@@ -24,8 +24,8 @@ pub struct PendingGame {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RollupState<T> {
-    pub sequenced: Vec<WrappedTransaction>,
+pub struct RollupState<T, D> {
+    pub sequenced: Vec<WrappedTransaction<D>>,
     pub balances: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
     pub state: T,
@@ -38,11 +38,11 @@ pub struct ChessState {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WrappedTransaction {
+pub struct WrappedTransaction<T> {
     pub pub_key: AlloyAddress,
     pub sig: Signature,
-    pub data: TxType,
-    // NOTE: I realized that TxType has to have a deterministic way to (de)serialize itself
+    pub data: TransactionData<T>,
+    // NOTE: I realized that TransactionData has to have a deterministic way to (de)serialize itself
     //   otherwise you'll pull your hair out wondering why the sig verification isn't working...
     //   perhaps EIP712 fixes this? Need to look. Regardless, just noting for now - fix later...
     // TODO probably need to add nonces, value, gas, gasPrice, gasLimit, ... but whatever
@@ -51,7 +51,7 @@ pub struct WrappedTransaction {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum TxType {
+pub enum TransactionData<T> {
     BridgeTokens(U256),
     WithdrawTokens(U256),
     Transfer {
@@ -59,6 +59,11 @@ pub enum TxType {
         to: AlloyAddress,
         amount: U256,
     },
+    Extension(T),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ChessTransactions {
     ProposeGame {
         white: AlloyAddress,
         black: AlloyAddress,
@@ -73,8 +78,8 @@ pub enum TxType {
 }
 
 pub fn chain_event_loop(
-    tx: WrappedTransaction,
-    rollup: &mut RollupState<ChessState>,
+    tx: WrappedTransaction<ChessTransactions>,
+    rollup: &mut RollupState<ChessState, ChessTransactions>,
 ) -> anyhow::Result<()> {
     let decode_tx = tx.clone();
 
@@ -88,8 +93,8 @@ pub fn chain_event_loop(
     }
 
     match decode_tx.data {
-        TxType::BridgeTokens(_) => Ok(()),
-        TxType::WithdrawTokens(amount) => {
+        TransactionData::BridgeTokens(_) => Ok(()),
+        TransactionData::WithdrawTokens(amount) => {
             rollup.balances.insert(
                 tx.pub_key.clone(),
                 rollup.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) - amount,
@@ -98,7 +103,7 @@ pub fn chain_event_loop(
             rollup.sequenced.push(tx);
             Ok(())
         }
-        TxType::Transfer { from, to, amount } => {
+        TransactionData::Transfer { from, to, amount } => {
             rollup.balances.insert(
                 from.clone(),
                 rollup.balances.get(&from).unwrap_or(&U256::ZERO) - amount,
@@ -110,133 +115,136 @@ pub fn chain_event_loop(
             rollup.sequenced.push(tx);
             Ok(())
         }
-        TxType::ProposeGame {
-            white,
-            black,
-            wager,
-        } => {
-            let game_id = U256::from(rollup.state.pending_games.len());
-            rollup.state.pending_games.insert(
-                game_id,
-                PendingGame {
-                    white: white.clone(),
-                    black: black.clone(),
-                    accepted: if white == tx.pub_key {
-                        (true, false)
-                    } else if black == tx.pub_key {
-                        (false, true)
-                    } else {
-                        return Err(anyhow::anyhow!("not a player"));
+        TransactionData::Extension(ext) => match ext {
+            ChessTransactions::ProposeGame {
+                white,
+                black,
+                wager,
+            } => {
+                let game_id = U256::from(rollup.state.pending_games.len());
+                rollup.state.pending_games.insert(
+                    game_id,
+                    PendingGame {
+                        white: white.clone(),
+                        black: black.clone(),
+                        accepted: if white == tx.pub_key {
+                            (true, false)
+                        } else if black == tx.pub_key {
+                            (false, true)
+                        } else {
+                            return Err(anyhow::anyhow!("not a player"));
+                        },
+                        wager,
                     },
-                    wager,
-                },
-            );
-            rollup.sequenced.push(tx);
-            Ok(())
-        }
-        TxType::StartGame(game_id) => {
-            let Some(pending_game) = rollup.state.pending_games.get(&game_id) else {
-                return Err(anyhow::anyhow!("game id doesn't exist"));
-            };
-            if pending_game.accepted == (true, false) {
-                if tx.pub_key != pending_game.black {
-                    return Err(anyhow::anyhow!("not white"));
-                }
-            } else if pending_game.accepted == (false, true) {
-                if tx.pub_key != pending_game.white {
-                    return Err(anyhow::anyhow!("not black"));
-                }
-            } else {
-                return Err(anyhow::anyhow!("impossible to reach"));
+                );
+                rollup.sequenced.push(tx);
+                Ok(())
             }
-
-            let Some(white_balance) = rollup.balances.get(&pending_game.white) else {
-                return Err(anyhow::anyhow!("white doesn't exist"));
-            };
-            let Some(black_balance) = rollup.balances.get(&pending_game.black) else {
-                return Err(anyhow::anyhow!("black doesn't exist"));
-            };
-
-            if white_balance < &pending_game.wager || black_balance < &pending_game.wager {
-                return Err(anyhow::anyhow!("insufficient funds"));
-            }
-
-            rollup.balances.insert(
-                pending_game.white.clone(),
-                rollup.balances.get(&pending_game.white).unwrap() - pending_game.wager,
-            );
-            rollup.balances.insert(
-                pending_game.black.clone(),
-                rollup.balances.get(&pending_game.black).unwrap() - pending_game.wager,
-            );
-
-            rollup.state.games.insert(
-                game_id,
-                Game {
-                    turns: 0,
-                    board: Board::default().to_string(),
-                    white: pending_game.white.clone(),
-                    black: pending_game.black.clone(),
-                    wager: pending_game.wager * U256::from(2),
-                },
-            );
-            rollup.state.pending_games.remove(&game_id);
-            rollup.sequenced.push(tx);
-            Ok(())
-        }
-        TxType::Move { game_id, san } => {
-            let Some(game) = rollup.state.games.get_mut(&game_id) else {
-                return Err(anyhow::anyhow!("game id doesn't exist"));
-            };
-
-            if game.turns % 2 == 0 && tx.pub_key != game.white {
-                return Err(anyhow::anyhow!("not white's turn"));
-            } else if game.turns % 2 == 1 && tx.pub_key != game.black {
-                return Err(anyhow::anyhow!("not black's turn"));
-            }
-
-            let mut board = Board::from_str(&game.board).unwrap();
-            board = board.make_move_new(ChessMove::from_san(&board, &san).expect("invalid move"));
-            game.board = board.to_string();
-            game.turns += 1;
-            rollup.sequenced.push(tx);
-            Ok(())
-        }
-        TxType::ClaimWin(game_id) => {
-            let game = rollup
-                .state
-                .games
-                .get_mut(&game_id)
-                .expect("game id doesn't exist");
-            let board = Board::from_str(&game.board).unwrap();
-
-            if board.status() == BoardStatus::Checkmate {
-                if game.turns % 2 == 0 {
-                    rollup.balances.insert(
-                        game.black.clone(),
-                        rollup.balances.get(&game.black).unwrap() + game.wager,
-                    );
+            ChessTransactions::StartGame(game_id) => {
+                let Some(pending_game) = rollup.state.pending_games.get(&game_id) else {
+                    return Err(anyhow::anyhow!("game id doesn't exist"));
+                };
+                if pending_game.accepted == (true, false) {
+                    if tx.pub_key != pending_game.black {
+                        return Err(anyhow::anyhow!("not white"));
+                    }
+                } else if pending_game.accepted == (false, true) {
+                    if tx.pub_key != pending_game.white {
+                        return Err(anyhow::anyhow!("not black"));
+                    }
                 } else {
+                    return Err(anyhow::anyhow!("impossible to reach"));
+                }
+
+                let Some(white_balance) = rollup.balances.get(&pending_game.white) else {
+                    return Err(anyhow::anyhow!("white doesn't exist"));
+                };
+                let Some(black_balance) = rollup.balances.get(&pending_game.black) else {
+                    return Err(anyhow::anyhow!("black doesn't exist"));
+                };
+
+                if white_balance < &pending_game.wager || black_balance < &pending_game.wager {
+                    return Err(anyhow::anyhow!("insufficient funds"));
+                }
+
+                rollup.balances.insert(
+                    pending_game.white.clone(),
+                    rollup.balances.get(&pending_game.white).unwrap() - pending_game.wager,
+                );
+                rollup.balances.insert(
+                    pending_game.black.clone(),
+                    rollup.balances.get(&pending_game.black).unwrap() - pending_game.wager,
+                );
+
+                rollup.state.games.insert(
+                    game_id,
+                    Game {
+                        turns: 0,
+                        board: Board::default().to_string(),
+                        white: pending_game.white.clone(),
+                        black: pending_game.black.clone(),
+                        wager: pending_game.wager * U256::from(2),
+                    },
+                );
+                rollup.state.pending_games.remove(&game_id);
+                rollup.sequenced.push(tx);
+                Ok(())
+            }
+            ChessTransactions::Move { game_id, san } => {
+                let Some(game) = rollup.state.games.get_mut(&game_id) else {
+                    return Err(anyhow::anyhow!("game id doesn't exist"));
+                };
+
+                if game.turns % 2 == 0 && tx.pub_key != game.white {
+                    return Err(anyhow::anyhow!("not white's turn"));
+                } else if game.turns % 2 == 1 && tx.pub_key != game.black {
+                    return Err(anyhow::anyhow!("not black's turn"));
+                }
+
+                let mut board = Board::from_str(&game.board).unwrap();
+                board =
+                    board.make_move_new(ChessMove::from_san(&board, &san).expect("invalid move"));
+                game.board = board.to_string();
+                game.turns += 1;
+                rollup.sequenced.push(tx);
+                Ok(())
+            }
+            ChessTransactions::ClaimWin(game_id) => {
+                let game = rollup
+                    .state
+                    .games
+                    .get_mut(&game_id)
+                    .expect("game id doesn't exist");
+                let board = Board::from_str(&game.board).unwrap();
+
+                if board.status() == BoardStatus::Checkmate {
+                    if game.turns % 2 == 0 {
+                        rollup.balances.insert(
+                            game.black.clone(),
+                            rollup.balances.get(&game.black).unwrap() + game.wager,
+                        );
+                    } else {
+                        rollup.balances.insert(
+                            game.white.clone(),
+                            rollup.balances.get(&game.white).unwrap() + game.wager,
+                        );
+                    }
+                } else if board.status() == BoardStatus::Stalemate {
                     rollup.balances.insert(
                         game.white.clone(),
-                        rollup.balances.get(&game.white).unwrap() + game.wager,
+                        rollup.balances.get(&game.white).unwrap() + game.wager / U256::from(2),
                     );
+                    rollup.balances.insert(
+                        game.black.clone(),
+                        rollup.balances.get(&game.black).unwrap() + game.wager / U256::from(2),
+                    );
+                } else {
+                    return Err(anyhow::anyhow!("game is not over"));
                 }
-            } else if board.status() == BoardStatus::Stalemate {
-                rollup.balances.insert(
-                    game.white.clone(),
-                    rollup.balances.get(&game.white).unwrap() + game.wager / U256::from(2),
-                );
-                rollup.balances.insert(
-                    game.black.clone(),
-                    rollup.balances.get(&game.black).unwrap() + game.wager / U256::from(2),
-                );
-            } else {
-                return Err(anyhow::anyhow!("game is not over"));
-            }
 
-            rollup.state.games.remove(&game_id);
-            Ok(())
-        }
+                rollup.state.games.remove(&game_id);
+                Ok(())
+            }
+        },
     }
 }

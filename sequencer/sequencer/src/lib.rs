@@ -33,13 +33,17 @@ enum AdminActions {
     Disperse,
 }
 
-pub fn save_rollup_state(state: &RollupState<ChessState>) {
+pub fn save_rollup_state(state: &RollupState<ChessState, ChessTransactions>) {
     set_state(&bincode::serialize(&state).unwrap());
     // NOTE this function also needs to include logic for pushing to some DA layer
 }
 
-pub fn load_rollup_state() -> RollupState<ChessState> {
-    match get_typed_state(|bytes| Ok(bincode::deserialize::<RollupState<ChessState>>(bytes)?)) {
+pub fn load_rollup_state() -> RollupState<ChessState, ChessTransactions> {
+    match get_typed_state(|bytes| {
+        Ok(bincode::deserialize::<
+            RollupState<ChessState, ChessTransactions>,
+        >(bytes)?)
+    }) {
         Some(rs) => rs,
         None => RollupState {
             sequenced: Vec::new(),
@@ -72,7 +76,7 @@ fn initialize(our: Address) {
     http::bind_ws_path("/", true, false).unwrap();
     http::bind_ext_path("/").unwrap();
 
-    let mut state: RollupState<ChessState> = load_rollup_state();
+    let mut state: RollupState<ChessState, ChessTransactions> = load_rollup_state();
     let mut connection: Option<u32> = None;
 
     let eth_provider = eth::Provider::new(11155111, 5); // sepolia, 5s timeout
@@ -122,7 +126,11 @@ fn initialize(our: Address) {
     main_loop(&our, &mut state, &mut connection);
 }
 
-fn main_loop(our: &Address, state: &mut RollupState<ChessState>, connection: &mut Option<u32>) {
+fn main_loop(
+    our: &Address,
+    state: &mut RollupState<ChessState, ChessTransactions>,
+    connection: &mut Option<u32>,
+) {
     loop {
         match await_message() {
             Err(send_error) => {
@@ -140,7 +148,7 @@ fn main_loop(our: &Address, state: &mut RollupState<ChessState>, connection: &mu
 fn handle_message(
     our: &Address,
     message: &Message,
-    state: &mut RollupState<ChessState>,
+    state: &mut RollupState<ChessState, ChessTransactions>,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     // no responses
@@ -176,7 +184,7 @@ fn handle_message(
 /// Handle HTTP requests from our own frontend.
 fn handle_http_request(
     our: &Address,
-    state: &mut RollupState<ChessState>,
+    state: &mut RollupState<ChessState, ChessTransactions>,
     connection: &mut Option<u32>,
     message: &Message,
 ) -> anyhow::Result<()> {
@@ -217,7 +225,9 @@ fn handle_http_request(
                             vec![],
                         ));
                     };
-                    let tx = serde_json::from_slice::<WrappedTransaction>(&blob.bytes)?;
+                    let tx = serde_json::from_slice::<WrappedTransaction<ChessTransactions>>(
+                        &blob.bytes,
+                    )?;
 
                     chain_event_loop(tx, state)?;
                     save_rollup_state(state);
@@ -287,7 +297,7 @@ fn handle_http_request(
 
 fn handle_admin_message(
     message: &Message,
-    state: &mut RollupState<ChessState>,
+    state: &mut RollupState<ChessState, ChessTransactions>,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     match serde_json::from_slice::<AdminActions>(message.body())? {
@@ -330,7 +340,10 @@ fn handle_admin_message(
     }
 }
 
-fn handle_log(state: &mut RollupState<ChessState>, log: &eth::Log) -> anyhow::Result<()> {
+fn handle_log(
+    state: &mut RollupState<ChessState, ChessTransactions>,
+    log: &eth::Log,
+) -> anyhow::Result<()> {
     // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up
     match FixedBytes::<32>::new(log.topics[0].as_slice().try_into().unwrap()) {
         DepositMade::SIGNATURE_HASH => {
@@ -369,7 +382,7 @@ fn handle_log(state: &mut RollupState<ChessState>, log: &eth::Log) -> anyhow::Re
                 // you could get a signature from the sequencer? That could work! But at the end of the day it
                 // doesn't matter, you don't need to verify it.
                 sig: Signature::test_signature(),
-                data: TxType::BridgeTokens(amount),
+                data: TransactionData::BridgeTokens(amount),
             });
         }
         _ => {

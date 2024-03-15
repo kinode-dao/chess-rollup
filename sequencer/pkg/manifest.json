@@ -12,16 +12,5 @@
         ],
         "grant_capabilities": [],
         "public": true
-    },
-    {
-        "process_name": "disperser",
-        "process_wasm_path": "/disperser.wasm",
-        "on_exit": "Restart",
-        "request_networking": true,
-        "request_capabilities": [],
-        "grant_capabilities": [
-            "sequencer:rollup:goldfinger.os"
-        ],
-        "public": true
     }
 ]
