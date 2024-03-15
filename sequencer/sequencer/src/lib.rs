@@ -150,151 +150,136 @@ fn handle_message(
         // first verify that this message was posted to DA
         // then sequence it
         return Ok(());
-    } else if message.source().node == our.node
-        && message.source().process == "http_server:distro:sys"
-    {
-        // receive HTTP requests and websocket connection messages from our server
-        match serde_json::from_slice::<http::HttpServerRequest>(message.body())? {
-            http::HttpServerRequest::Http(ref incoming) => {
-                match handle_http_request(our, state, incoming) {
-                    Ok(()) => Ok(()),
-                    Err(e) => {
-                        http::send_response(
-                            http::StatusCode::SERVICE_UNAVAILABLE,
-                            None,
-                            "Service Unavailable".to_string().as_bytes().to_vec(),
-                        );
-                        Err(anyhow::anyhow!(
-                            "rollup: error handling http request: {e:?}"
-                        ))
-                    }
-                }
-            }
-            http::HttpServerRequest::WebSocketOpen { ref channel_id, .. } => {
-                println!("sequencer: connected to prover_extension");
-                *connection = Some(*channel_id);
-                Ok(())
-            }
-            http::HttpServerRequest::WebSocketClose(ref channel_id) => {
-                if connection.unwrap_or(0) != *channel_id {
-                    return Err(anyhow::anyhow!("WebSocketClose wrong channel_id"));
-                }
-                println!("sequencer: dropped connection with prover_extension");
-                *connection = None;
-                Ok(())
-            }
-            http::HttpServerRequest::WebSocketPush {
-                ref channel_id,
-                ref message_type,
-            } => {
-                if connection.unwrap_or(0) != *channel_id {
-                    return Err(anyhow::anyhow!("wrong channel_id"));
-                }
-                println!("sequencer: got WebSocketPush");
-                let http::WsMessageType::Binary = message_type else {
-                    return Err(anyhow::anyhow!("expected binary message"));
-                };
-
-                let Some(blob) = get_blob() else {
-                    return Err(anyhow::anyhow!("WebSocketPush Binary had no blob"));
-                };
-
-                let kinode_process_lib::http::HttpServerAction::WebSocketExtPushData {
-                    // id,
-                    // kinode_message_type,
-                    blob,
-                    ..
-                } = serde_json::from_slice(&blob.bytes)?
-                else {
-                    return Err(anyhow::anyhow!("expected WebSocketExtPushData"));
-                };
-                let drive_path: String = create_drive(our.package_id(), "proofs", Some(5))?;
-                let proof_file = create_file(&format!("{}/proof.json", &drive_path), Some(5))?;
-                proof_file.write(&blob)?;
-                // TODO verify this proof on some blockchain
-                Ok(())
-            }
-        }
-    } else if message.source().node == our.node && message.source().process == "eth:distro:sys" {
-        println!("got eth message");
-        let Ok(Ok(eth::EthSub { result, .. })) =
-            serde_json::from_slice::<eth::EthSubResult>(message.body())
-        else {
-            return Err(anyhow::anyhow!("sequencer: got invalid message"));
-        };
-
-        let eth::SubscriptionResult::Log(log) = result else {
-            panic!("expected log");
-        };
-
-        return handle_log(state, &log);
-    } else if message.source().node == our.node {
-        return handle_admin_message(message, state, connection);
-    } else {
-        return Err(anyhow::anyhow!("ignoring request"));
     }
+    return match message.source().process.to_string().as_str() {
+        "http_server:distro:sys" => {
+            return handle_http_request(our, state, connection, message);
+        }
+        "eth:distro:sys" => {
+            println!("got eth message");
+            let Ok(Ok(eth::EthSub { result, .. })) =
+                serde_json::from_slice::<eth::EthSubResult>(message.body())
+            else {
+                return Err(anyhow::anyhow!("sequencer: got invalid message"));
+            };
+            let eth::SubscriptionResult::Log(log) = result else {
+                panic!("expected log");
+            };
+            handle_log(state, &log)
+        }
+        _ => handle_admin_message(message, state, connection),
+    };
 }
 
 /// Handle HTTP requests from our own frontend.
 fn handle_http_request(
-    _our: &Address,
+    our: &Address,
     state: &mut RollupState,
-    http_request: &http::IncomingHttpRequest,
+    connection: &mut Option<u32>,
+    message: &Message,
 ) -> anyhow::Result<()> {
-    // TODO fix this
-    // if http_request.bound_path(Some(&our.process.to_string())) != "/rpc" {
-    //     http::send_response(
-    //         http::StatusCode::NOT_FOUND,
-    //         None,
-    //         "Not Found".to_string().as_bytes().to_vec(),
-    //     );
-    //     return Ok(());
-    // }
-    match http_request.method()?.as_str() {
-        // on GET: view state
-        // TODO: better read api
-        "GET" => {
-            println!("sequencer: got GET request, returning balances...");
-            http::send_response(
-                http::StatusCode::OK,
-                Some(HashMap::from([(
-                    String::from("Content-Type"),
-                    String::from("application/json"),
-                )])),
-                serde_json::to_vec(&state)?,
-            );
-            Ok(())
-        }
-        // on POST: new transaction
-        // TODO think we may need more RPC methods here
-        "POST" => {
-            println!("sequencer: got POST request, handling transaction...");
-            let Some(blob) = get_blob() else {
-                return Ok(http::send_response(
-                    http::StatusCode::BAD_REQUEST,
+    match serde_json::from_slice::<http::HttpServerRequest>(message.body())? {
+        http::HttpServerRequest::Http(ref incoming) => {
+            // TODO fix this
+            // if http_request.bound_path(Some(&our.process.to_string())) != "/rpc" {
+            //     http::send_response(
+            //         http::StatusCode::NOT_FOUND,
+            //         None,
+            //         "Not Found".to_string().as_bytes().to_vec(),
+            //     );
+            //     return Ok(());
+            // }
+            match incoming.method()?.as_str() {
+                // on GET: view state
+                // TODO: better read api
+                "GET" => {
+                    println!("sequencer: got GET request, returning balances...");
+                    http::send_response(
+                        http::StatusCode::OK,
+                        Some(HashMap::from([(
+                            String::from("Content-Type"),
+                            String::from("application/json"),
+                        )])),
+                        serde_json::to_vec(&state)?,
+                    );
+                    Ok(())
+                }
+                // on POST: new transaction
+                // TODO think we may need more RPC methods here
+                "POST" => {
+                    println!("sequencer: got POST request, handling transaction...");
+                    let Some(blob) = get_blob() else {
+                        return Ok(http::send_response(
+                            http::StatusCode::BAD_REQUEST,
+                            None,
+                            vec![],
+                        ));
+                    };
+                    let tx = serde_json::from_slice::<WrappedTransaction>(&blob.bytes)?;
+
+                    chain_event_loop(tx, state)?;
+                    save_rollup_state(state);
+                    // TODO propagate tx to DA layer
+                    http::send_response(
+                        http::StatusCode::OK,
+                        None, // TODO application/json
+                        "todo send tx receipt here".to_string().as_bytes().to_vec(),
+                    );
+
+                    Ok(())
+                }
+                // Any other method will be rejected.
+                _ => Ok(http::send_response(
+                    http::StatusCode::METHOD_NOT_ALLOWED,
                     None,
                     vec![],
-                ));
-            };
-            let tx = serde_json::from_slice::<WrappedTransaction>(&blob.bytes)?;
-
-            chain_event_loop(tx, state)?;
-            save_rollup_state(state);
-            // TODO propagate tx to DA layer
-            http::send_response(
-                http::StatusCode::OK,
-                None, // TODO application/json
-                "todo send tx receipt here".to_string().as_bytes().to_vec(),
-            );
-
+                )),
+            }
+        }
+        http::HttpServerRequest::WebSocketOpen { ref channel_id, .. } => {
+            println!("sequencer: connected to prover_extension");
+            *connection = Some(*channel_id);
             Ok(())
         }
-        // Any other method will be rejected.
-        _ => Ok(http::send_response(
-            http::StatusCode::METHOD_NOT_ALLOWED,
-            None,
-            vec![],
-        )),
+        http::HttpServerRequest::WebSocketClose(ref channel_id) => {
+            if connection.unwrap_or(0) != *channel_id {
+                return Err(anyhow::anyhow!("WebSocketClose wrong channel_id"));
+            }
+            println!("sequencer: dropped connection with prover_extension");
+            *connection = None;
+            Ok(())
+        }
+        http::HttpServerRequest::WebSocketPush {
+            ref channel_id,
+            ref message_type,
+        } => {
+            if connection.unwrap_or(0) != *channel_id {
+                return Err(anyhow::anyhow!("wrong channel_id"));
+            }
+            println!("sequencer: got WebSocketPush");
+            let http::WsMessageType::Binary = message_type else {
+                return Err(anyhow::anyhow!("expected binary message"));
+            };
+
+            let Some(blob) = get_blob() else {
+                return Err(anyhow::anyhow!("WebSocketPush Binary had no blob"));
+            };
+
+            let kinode_process_lib::http::HttpServerAction::WebSocketExtPushData {
+                // id,
+                // kinode_message_type,
+                blob,
+                ..
+            } = serde_json::from_slice(&blob.bytes)?
+            else {
+                return Err(anyhow::anyhow!("expected WebSocketExtPushData"));
+            };
+            let drive_path: String = create_drive(our.package_id(), "proofs", Some(5))?;
+            let proof_file = create_file(&format!("{}/proof.json", &drive_path), Some(5))?;
+            proof_file.write(&blob)?;
+            // TODO verify this proof on some blockchain
+            Ok(())
+        }
     }
 }
 
