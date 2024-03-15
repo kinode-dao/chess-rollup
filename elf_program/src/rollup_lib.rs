@@ -51,6 +51,14 @@ pub enum TransactionData<T> {
     Extension(T),
 }
 
+/// The execution engine is responsible for taking a transaction and applying it to the rollup state
+/// ```rust
+/// impl ExecutionEngine<MyTransactions> for RollupState<MyState, MyTransactions> {
+///     fn execute(&mut self, tx: WrappedTransaction<MyTransactions>) -> anyhow::Result<()> {
+///         // implement your logic here
+///     }
+/// }
+/// ```
 pub trait ExecutionEngine<T> {
     fn execute(&mut self, tx: WrappedTransaction<T>) -> anyhow::Result<()>;
 }
