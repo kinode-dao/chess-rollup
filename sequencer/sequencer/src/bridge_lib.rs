@@ -42,6 +42,7 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
 }
 
 /// TODO this needs to include a town_id
+/// TODO this needs to include a from_block parameter because we don't want to reprocess
 pub fn get_old_logs(
     eth_provider: &eth::Provider,
     state: &mut RollupState<ChessState, ChessTransactions>,
