@@ -343,8 +343,7 @@ fn handle_log(
     state: &mut RollupState<ChessState, ChessTransactions>,
     log: &eth::Log,
 ) -> anyhow::Result<()> {
-    // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up
-    match FixedBytes::<32>::new(log.topics[0].as_slice().try_into().unwrap()) {
+    match log.topics[0] {
         DepositMade::SIGNATURE_HASH => {
             println!("deposit event");
             // let event = DepositMade::from_log(&log)?;
