@@ -24,10 +24,15 @@ pub struct PendingGame {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RollupState {
+pub struct RollupState<T> {
     pub sequenced: Vec<WrappedTransaction>,
     pub balances: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
+    pub state: T,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ChessState {
     pub pending_games: HashMap<GameId, PendingGame>,
     pub games: HashMap<GameId, Game>,
 }
@@ -67,7 +72,10 @@ pub enum TxType {
     ClaimWin(U256),
 }
 
-pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyhow::Result<()> {
+pub fn chain_event_loop(
+    tx: WrappedTransaction,
+    rollup: &mut RollupState<ChessState>,
+) -> anyhow::Result<()> {
     let decode_tx = tx.clone();
 
     if decode_tx
@@ -82,24 +90,24 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
     match decode_tx.data {
         TxType::BridgeTokens(_) => Ok(()),
         TxType::WithdrawTokens(amount) => {
-            state.balances.insert(
+            rollup.balances.insert(
                 tx.pub_key.clone(),
-                state.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) - amount,
+                rollup.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) - amount,
             );
-            state.withdrawals.push((tx.pub_key, amount));
-            state.sequenced.push(tx);
+            rollup.withdrawals.push((tx.pub_key, amount));
+            rollup.sequenced.push(tx);
             Ok(())
         }
         TxType::Transfer { from, to, amount } => {
-            state.balances.insert(
+            rollup.balances.insert(
                 from.clone(),
-                state.balances.get(&from).unwrap_or(&U256::ZERO) - amount,
+                rollup.balances.get(&from).unwrap_or(&U256::ZERO) - amount,
             );
-            state.balances.insert(
+            rollup.balances.insert(
                 to.clone(),
-                state.balances.get(&to).unwrap_or(&U256::ZERO) + amount,
+                rollup.balances.get(&to).unwrap_or(&U256::ZERO) + amount,
             );
-            state.sequenced.push(tx);
+            rollup.sequenced.push(tx);
             Ok(())
         }
         TxType::ProposeGame {
@@ -107,8 +115,8 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
             black,
             wager,
         } => {
-            let game_id = U256::from(state.pending_games.len());
-            state.pending_games.insert(
+            let game_id = U256::from(rollup.state.pending_games.len());
+            rollup.state.pending_games.insert(
                 game_id,
                 PendingGame {
                     white: white.clone(),
@@ -123,11 +131,11 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                     wager,
                 },
             );
-            state.sequenced.push(tx);
+            rollup.sequenced.push(tx);
             Ok(())
         }
         TxType::StartGame(game_id) => {
-            let Some(pending_game) = state.pending_games.get(&game_id) else {
+            let Some(pending_game) = rollup.state.pending_games.get(&game_id) else {
                 return Err(anyhow::anyhow!("game id doesn't exist"));
             };
             if pending_game.accepted == (true, false) {
@@ -142,10 +150,10 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                 return Err(anyhow::anyhow!("impossible to reach"));
             }
 
-            let Some(white_balance) = state.balances.get(&pending_game.white) else {
+            let Some(white_balance) = rollup.balances.get(&pending_game.white) else {
                 return Err(anyhow::anyhow!("white doesn't exist"));
             };
-            let Some(black_balance) = state.balances.get(&pending_game.black) else {
+            let Some(black_balance) = rollup.balances.get(&pending_game.black) else {
                 return Err(anyhow::anyhow!("black doesn't exist"));
             };
 
@@ -153,16 +161,16 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                 return Err(anyhow::anyhow!("insufficient funds"));
             }
 
-            state.balances.insert(
+            rollup.balances.insert(
                 pending_game.white.clone(),
-                state.balances.get(&pending_game.white).unwrap() - pending_game.wager,
+                rollup.balances.get(&pending_game.white).unwrap() - pending_game.wager,
             );
-            state.balances.insert(
+            rollup.balances.insert(
                 pending_game.black.clone(),
-                state.balances.get(&pending_game.black).unwrap() - pending_game.wager,
+                rollup.balances.get(&pending_game.black).unwrap() - pending_game.wager,
             );
 
-            state.games.insert(
+            rollup.state.games.insert(
                 game_id,
                 Game {
                     turns: 0,
@@ -172,12 +180,12 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
                     wager: pending_game.wager * U256::from(2),
                 },
             );
-            state.pending_games.remove(&game_id);
-            state.sequenced.push(tx);
+            rollup.state.pending_games.remove(&game_id);
+            rollup.sequenced.push(tx);
             Ok(())
         }
         TxType::Move { game_id, san } => {
-            let Some(game) = state.games.get_mut(&game_id) else {
+            let Some(game) = rollup.state.games.get_mut(&game_id) else {
                 return Err(anyhow::anyhow!("game id doesn't exist"));
             };
 
@@ -191,11 +199,12 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
             board = board.make_move_new(ChessMove::from_san(&board, &san).expect("invalid move"));
             game.board = board.to_string();
             game.turns += 1;
-            state.sequenced.push(tx);
+            rollup.sequenced.push(tx);
             Ok(())
         }
         TxType::ClaimWin(game_id) => {
-            let game = state
+            let game = rollup
+                .state
                 .games
                 .get_mut(&game_id)
                 .expect("game id doesn't exist");
@@ -203,30 +212,30 @@ pub fn chain_event_loop(tx: WrappedTransaction, state: &mut RollupState) -> anyh
 
             if board.status() == BoardStatus::Checkmate {
                 if game.turns % 2 == 0 {
-                    state.balances.insert(
+                    rollup.balances.insert(
                         game.black.clone(),
-                        state.balances.get(&game.black).unwrap() + game.wager,
+                        rollup.balances.get(&game.black).unwrap() + game.wager,
                     );
                 } else {
-                    state.balances.insert(
+                    rollup.balances.insert(
                         game.white.clone(),
-                        state.balances.get(&game.white).unwrap() + game.wager,
+                        rollup.balances.get(&game.white).unwrap() + game.wager,
                     );
                 }
             } else if board.status() == BoardStatus::Stalemate {
-                state.balances.insert(
+                rollup.balances.insert(
                     game.white.clone(),
-                    state.balances.get(&game.white).unwrap() + game.wager / U256::from(2),
+                    rollup.balances.get(&game.white).unwrap() + game.wager / U256::from(2),
                 );
-                state.balances.insert(
+                rollup.balances.insert(
                     game.black.clone(),
-                    state.balances.get(&game.black).unwrap() + game.wager / U256::from(2),
+                    rollup.balances.get(&game.black).unwrap() + game.wager / U256::from(2),
                 );
             } else {
                 return Err(anyhow::anyhow!("game is not over"));
             }
 
-            state.games.remove(&game_id);
+            rollup.state.games.remove(&game_id);
             Ok(())
         }
     }

@@ -33,20 +33,22 @@ enum AdminActions {
     Disperse,
 }
 
-pub fn save_rollup_state(state: &RollupState) {
+pub fn save_rollup_state(state: &RollupState<ChessState>) {
     set_state(&bincode::serialize(&state).unwrap());
     // NOTE this function also needs to include logic for pushing to some DA layer
 }
 
-pub fn load_rollup_state() -> RollupState {
-    match get_typed_state(|bytes| Ok(bincode::deserialize::<RollupState>(bytes)?)) {
+pub fn load_rollup_state() -> RollupState<ChessState> {
+    match get_typed_state(|bytes| Ok(bincode::deserialize::<RollupState<ChessState>>(bytes)?)) {
         Some(rs) => rs,
         None => RollupState {
             sequenced: Vec::new(),
             balances: HashMap::new(),
             withdrawals: Vec::new(),
-            pending_games: HashMap::new(),
-            games: HashMap::new(),
+            state: ChessState {
+                pending_games: HashMap::new(),
+                games: HashMap::new(),
+            },
         },
     }
 }
@@ -70,7 +72,7 @@ fn initialize(our: Address) {
     http::bind_ws_path("/", true, false).unwrap();
     http::bind_ext_path("/").unwrap();
 
-    let mut state: RollupState = load_rollup_state();
+    let mut state: RollupState<ChessState> = load_rollup_state();
     let mut connection: Option<u32> = None;
 
     let eth_provider = eth::Provider::new(11155111, 5); // sepolia, 5s timeout
@@ -120,7 +122,7 @@ fn initialize(our: Address) {
     main_loop(&our, &mut state, &mut connection);
 }
 
-fn main_loop(our: &Address, state: &mut RollupState, connection: &mut Option<u32>) {
+fn main_loop(our: &Address, state: &mut RollupState<ChessState>, connection: &mut Option<u32>) {
     loop {
         match await_message() {
             Err(send_error) => {
@@ -138,7 +140,7 @@ fn main_loop(our: &Address, state: &mut RollupState, connection: &mut Option<u32
 fn handle_message(
     our: &Address,
     message: &Message,
-    state: &mut RollupState,
+    state: &mut RollupState<ChessState>,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     // no responses
@@ -174,7 +176,7 @@ fn handle_message(
 /// Handle HTTP requests from our own frontend.
 fn handle_http_request(
     our: &Address,
-    state: &mut RollupState,
+    state: &mut RollupState<ChessState>,
     connection: &mut Option<u32>,
     message: &Message,
 ) -> anyhow::Result<()> {
@@ -285,7 +287,7 @@ fn handle_http_request(
 
 fn handle_admin_message(
     message: &Message,
-    state: &mut RollupState,
+    state: &mut RollupState<ChessState>,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     match serde_json::from_slice::<AdminActions>(message.body())? {
@@ -328,7 +330,7 @@ fn handle_admin_message(
     }
 }
 
-fn handle_log(state: &mut RollupState, log: &eth::Log) -> anyhow::Result<()> {
+fn handle_log(state: &mut RollupState<ChessState>, log: &eth::Log) -> anyhow::Result<()> {
     // NOTE this ugliness is only because kinode_process_lib::eth is using an old version of alloy. Once it's at 0.6.3/4 we can clear this up
     match FixedBytes::<32>::new(log.topics[0].as_slice().try_into().unwrap()) {
         DepositMade::SIGNATURE_HASH => {
