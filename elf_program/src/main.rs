@@ -1,8 +1,10 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-mod tx;
-use tx::*;
+mod chess_engine;
+use chess_engine::*;
+mod rollup_lib;
+use rollup_lib::*;
 
 pub fn main() {
     let mut state = sp1_zkvm::io::read::<RollupState<ChessState, ChessTransactions>>();
