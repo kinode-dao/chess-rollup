@@ -12,12 +12,12 @@ use serde::{Deserialize, Serialize};
 use sp1_core::SP1Stdin;
 use std::collections::HashMap;
 
-mod dac;
-use dac::*;
+mod chess_engine;
+use chess_engine::{chain_event_loop, ChessState, ChessTransactions};
 mod prover_types;
 use prover_types::ProveRequest;
-mod tx;
-use tx::*;
+mod rollup_lib;
+use rollup_lib::*;
 
 const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-zkvm-elf");
 
@@ -30,7 +30,7 @@ sol! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum AdminActions {
     Prove,
-    Disperse,
+    // Disperse,
 }
 
 pub fn save_rollup_state(state: &RollupState<ChessState, ChessTransactions>) {
@@ -326,17 +326,16 @@ fn handle_admin_message(
                 .unwrap();
             // NOTE the response comes in as a WebSocketPush message
             Ok(())
-        }
-        AdminActions::Disperse => {
-            // TODO this should probably just happen automatically when Prove is called
-            let _ = Request::new()
-                .target(("our", "disperser", "rollup", "goldfinger.os"))
-                .body(serde_json::to_vec(&DisperserActions::PostBatch(
-                    state.sequenced.clone(),
-                ))?)
-                .send()?;
-            Ok(())
-        }
+        } // AdminActions::Disperse => {
+          //     // TODO this should probably just happen automatically when Prove is called
+          //     let _ = Request::new()
+          //         .target(("our", "disperser", "rollup", "goldfinger.os"))
+          //         .body(serde_json::to_vec(&DisperserActions::PostBatch(
+          //             state.sequenced.clone(),
+          //         ))?)
+          //         .send()?;
+          //     Ok(())
+          // }
     }
 }
 
@@ -367,23 +366,14 @@ fn handle_log(
                 return Err(anyhow::anyhow!("not handling NFT deposits"));
             }
 
-            state
-                .balances
-                .entry(uqbar_dest)
-                .and_modify(|balance| *balance += amount)
-                .or_insert(amount);
-            // NOTE that it is impossible to establish a proper sequence of when bridge transactions get inserted
-            // relative to other transactions => MEV! (if there is any MEV to be done, which I kind of doubt)
-            // the point is that you can prove that these are part of the inputs to the program, and they have to be
-            // sequenced at some point before the batch is over
-            state.sequenced.push(WrappedTransaction {
-                pub_key: uqbar_dest,
-                // TODO maybe need to rearchitect bridge transactions because they don't really have a signature
-                // you could get a signature from the sequencer? That could work! But at the end of the day it
-                // doesn't matter, you don't need to verify it.
-                sig: Signature::test_signature(),
-                data: TransactionData::BridgeTokens(amount),
-            });
+            chain_event_loop(
+                WrappedTransaction {
+                    pub_key: uqbar_dest,
+                    sig: Signature::test_signature(),
+                    data: TransactionData::BridgeTokens(amount),
+                },
+                state,
+            )?;
         }
         _ => {
             return Err(anyhow::anyhow!("unknown event"));
