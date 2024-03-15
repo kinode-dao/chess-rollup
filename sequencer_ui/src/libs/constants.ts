@@ -1,8 +1,8 @@
 import { Chain, CurrentConfig } from '../config'
 
 // Chains
-const MAINNET_CHAIN_ID = 1
-const SEPOLIA_CHAIN_ID = 11155111
+export const MAINNET_CHAIN_ID = 1
+export const SEPOLIA_CHAIN_ID = 11155111
 
 export const INPUT_CHAIN_ID = CurrentConfig.chain === Chain.SEPOLIA ? SEPOLIA_CHAIN_ID : MAINNET_CHAIN_ID
 export const INPUT_CHAIN_URL =
