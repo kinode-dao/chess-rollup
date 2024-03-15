@@ -13,7 +13,7 @@ use sp1_core::SP1Stdin;
 use std::collections::HashMap;
 
 mod chess_engine;
-use chess_engine::{chain_event_loop, ChessState, ChessTransactions};
+use chess_engine::{ChessState, ChessTransactions};
 mod prover_types;
 use prover_types::ProveRequest;
 mod rollup_lib;
@@ -229,7 +229,7 @@ fn handle_http_request(
                         &blob.bytes,
                     )?;
 
-                    chain_event_loop(tx, state)?;
+                    state.execute(tx)?;
                     save_rollup_state(state);
                     // TODO propagate tx to DA layer
                     http::send_response(
@@ -366,14 +366,11 @@ fn handle_log(
                 return Err(anyhow::anyhow!("not handling NFT deposits"));
             }
 
-            chain_event_loop(
-                WrappedTransaction {
-                    pub_key: uqbar_dest,
-                    sig: Signature::test_signature(),
-                    data: TransactionData::BridgeTokens(amount),
-                },
-                state,
-            )?;
+            state.execute(WrappedTransaction {
+                pub_key: uqbar_dest,
+                sig: Signature::test_signature(),
+                data: TransactionData::BridgeTokens(amount),
+            })?;
         }
         _ => {
             return Err(anyhow::anyhow!("unknown event"));

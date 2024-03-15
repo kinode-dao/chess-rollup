@@ -9,8 +9,8 @@ use std::collections::{HashMap, HashSet};
 
 // mod dac;
 // use dac::*;
-mod tx;
-use tx::WrappedTransaction;
+// mod tx;
+// use tx::WrappedTransaction;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DisperserState {
