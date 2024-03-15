@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["disperser", "sequencer"]
+members = ["sequencer"]
 
 [profile.release]
 panic = "abort"
