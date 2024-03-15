@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 type GameId = U256;
 
+/// A game of chess
 #[derive(Serialize, Deserialize)]
 pub struct Game {
     turns: u64,
@@ -16,6 +17,7 @@ pub struct Game {
     wager: U256,
 }
 
+/// A game of chess that has been proposed by white, but not accepted by black yet
 #[derive(Serialize, Deserialize)]
 pub struct PendingGame {
     white: AlloyAddress,
@@ -24,12 +26,15 @@ pub struct PendingGame {
     wager: U256,
 }
 
+/// All of the extra state we need for the chess rollup (excluding the state alread included in RollupState)
 #[derive(Serialize, Deserialize)]
 pub struct ChessState {
     pub pending_games: HashMap<GameId, PendingGame>,
     pub games: HashMap<GameId, Game>,
 }
 
+/// All of the transactions that will go in the TransactionData::Extension variant
+/// that we need for different actions in chess
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ChessTransactions {
     ProposeGame {
@@ -62,6 +67,7 @@ impl Default for ChessRollupState {
 }
 
 impl ExecutionEngine<ChessTransactions> for ChessRollupState {
+    // process a single transaction
     fn execute(&mut self, tx: WrappedTransaction<ChessTransactions>) -> anyhow::Result<()> {
         let decode_tx = tx.clone();
 
@@ -74,6 +80,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
             return Ok(());
         }
 
+        // verify the signature
         if decode_tx
             .sig
             .recover_address_from_msg(&serde_json::to_string(&decode_tx.data).unwrap().as_bytes())
@@ -83,6 +90,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
             return Err(anyhow::anyhow!("bad sig"));
         }
 
+        // TODO check for underflows everywhere
         match decode_tx.data {
             TransactionData::BridgeTokens(_) => Err(anyhow::anyhow!("shouldn't happen")),
             TransactionData::WithdrawTokens(amount) => {
@@ -106,6 +114,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                 self.sequenced.push(tx);
                 Ok(())
             }
+            // TransactionData::Extension includes the business logic for the rollup
             TransactionData::Extension(ext) => match ext {
                 ChessTransactions::ProposeGame {
                     white,
