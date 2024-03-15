@@ -1,7 +1,4 @@
-use crate::{
-    ChessState, ChessTransactions, ExecutionEngine, RollupState, TransactionData,
-    WrappedTransaction,
-};
+use crate::{ChessRollupState, ExecutionEngine, RollupState, TransactionData, WrappedTransaction};
 use alloy_primitives::{address, Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
 use kinode_process_lib::eth;
@@ -43,10 +40,7 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
 
 /// TODO this needs to include a town_id
 /// TODO this needs to include a from_block parameter because we don't want to reprocess
-pub fn get_old_logs(
-    eth_provider: &eth::Provider,
-    state: &mut RollupState<ChessState, ChessTransactions>,
-) {
+pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
     let filter = eth::Filter::new()
         .address(
             "0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b"

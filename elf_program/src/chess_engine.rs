@@ -45,7 +45,23 @@ pub enum ChessTransactions {
     ClaimWin(U256),
 }
 
-impl ExecutionEngine<ChessTransactions> for RollupState<ChessState, ChessTransactions> {
+pub type ChessRollupState = RollupState<ChessState, ChessTransactions>;
+
+impl Default for ChessRollupState {
+    fn default() -> Self {
+        Self {
+            sequenced: vec![],
+            balances: HashMap::new(),
+            withdrawals: vec![],
+            state: ChessState {
+                pending_games: HashMap::new(),
+                games: HashMap::new(),
+            },
+        }
+    }
+}
+
+impl ExecutionEngine<ChessTransactions> for ChessRollupState {
     fn execute(&mut self, tx: WrappedTransaction<ChessTransactions>) -> anyhow::Result<()> {
         let decode_tx = tx.clone();
 

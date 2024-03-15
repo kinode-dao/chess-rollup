@@ -13,7 +13,7 @@ use std::collections::HashMap;
 mod bridge_lib;
 use bridge_lib::{get_old_logs, handle_log, subscribe_to_logs};
 mod chess_engine;
-use chess_engine::{ChessState, ChessTransactions};
+use chess_engine::{ChessRollupState, ChessState, ChessTransactions};
 mod prover_types;
 use prover_types::ProveRequest;
 mod rollup_lib;
@@ -27,27 +27,15 @@ enum AdminActions {
     // Disperse,
 }
 
-pub fn save_rollup_state(state: &RollupState<ChessState, ChessTransactions>) {
+pub fn save_rollup_state(state: &ChessRollupState) {
     set_state(&bincode::serialize(&state).unwrap());
     // NOTE this function also needs to include logic for pushing to some DA layer
 }
 
-pub fn load_rollup_state() -> RollupState<ChessState, ChessTransactions> {
-    match get_typed_state(|bytes| {
-        Ok(bincode::deserialize::<
-            RollupState<ChessState, ChessTransactions>,
-        >(bytes)?)
-    }) {
+pub fn load_rollup_state() -> ChessRollupState {
+    match get_typed_state(|bytes| Ok(bincode::deserialize::<ChessRollupState>(bytes)?)) {
         Some(rs) => rs,
-        None => RollupState {
-            sequenced: Vec::new(),
-            balances: HashMap::new(),
-            withdrawals: Vec::new(),
-            state: ChessState {
-                pending_games: HashMap::new(),
-                games: HashMap::new(),
-            },
-        },
+        None => ChessRollupState::default(),
     }
 }
 
@@ -70,7 +58,7 @@ fn initialize(our: Address) {
     http::bind_ws_path("/", true, false).unwrap();
     http::bind_ext_path("/").unwrap();
 
-    let mut state: RollupState<ChessState, ChessTransactions> = load_rollup_state();
+    let mut state: ChessRollupState = load_rollup_state();
     let mut connection: Option<u32> = None;
 
     let eth_provider = eth::Provider::new(11155111, 5); // sepolia, 5s timeout
@@ -81,11 +69,7 @@ fn initialize(our: Address) {
     main_loop(&our, &mut state, &mut connection);
 }
 
-fn main_loop(
-    our: &Address,
-    state: &mut RollupState<ChessState, ChessTransactions>,
-    connection: &mut Option<u32>,
-) {
+fn main_loop(our: &Address, state: &mut ChessRollupState, connection: &mut Option<u32>) {
     loop {
         match await_message() {
             Err(send_error) => {
@@ -103,7 +87,7 @@ fn main_loop(
 fn handle_message(
     our: &Address,
     message: &Message,
-    state: &mut RollupState<ChessState, ChessTransactions>,
+    state: &mut ChessRollupState,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     // no responses
@@ -139,7 +123,7 @@ fn handle_message(
 /// Handle HTTP requests from our own frontend.
 fn handle_http_request(
     our: &Address,
-    state: &mut RollupState<ChessState, ChessTransactions>,
+    state: &mut ChessRollupState,
     connection: &mut Option<u32>,
     message: &Message,
 ) -> anyhow::Result<()> {
@@ -252,7 +236,7 @@ fn handle_http_request(
 
 fn handle_admin_message(
     message: &Message,
-    state: &mut RollupState<ChessState, ChessTransactions>,
+    state: &mut ChessRollupState,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     match serde_json::from_slice::<AdminActions>(message.body())? {
