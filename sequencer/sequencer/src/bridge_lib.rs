@@ -5,8 +5,8 @@ use kinode_process_lib::eth;
 use kinode_process_lib::println;
 
 sol! {
-    event DepositMade(uint256 town, address tokenContract, uint256 tokenId,
-        address uqbarDest, uint256 amount, uint256 blockNumber, bytes32 prevDepositRoot
+    event DepositMade(uint256 indexed town, address indexed tokenContract, address indexed uqbarDest,
+        uint256 tokenId, uint256 amount, uint256 blockNumber, bytes32 prevDepositRoot
     );
 }
 
@@ -15,14 +15,14 @@ sol! {
 pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
     let filter = eth::Filter::new()
         .address(
-            "0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b"
+            "0xC61655415f3d8d8eE527b45aEc7101A9c6083A81"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
-            "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
+            "DepositMade(uint256,address,address,uint256,uint256,uint256,bytes32)",
         ]);
 
     loop {
@@ -43,14 +43,14 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
 pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
     let filter = eth::Filter::new()
         .address(
-            "0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b"
+            "0xC61655415f3d8d8eE527b45aEc7101A9c6083A81"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
-            "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
+            "DepositMade(uint256,address,address,uint256,uint256,uint256,bytes32)",
         ]);
     loop {
         match eth_provider.get_logs(&filter) {
@@ -79,15 +79,15 @@ where
     match log.topics[0] {
         DepositMade::SIGNATURE_HASH => {
             println!("deposit event");
+            let rollup_id: U256 = log.topics[1].into();
+            let token_contract = eth::Address::from_word(log.topics[2]);
+            let uqbar_dest = eth::Address::from_word(log.topics[3]);
             // let event = DepositMade::from_log(&log)?;
             let deposit = DepositMade::abi_decode_data(&log.data, true).unwrap();
-            let rollup_id = deposit.0;
-            let token_contract = deposit.1;
-            let token_id = deposit.2;
-            let uqbar_dest = deposit.3;
-            let amount = deposit.4;
-            let _block_number = deposit.5;
-            let _prev_deposit_root = deposit.6;
+            let token_id = deposit.0;
+            let amount = deposit.1;
+            let _block_number = deposit.2;
+            let _prev_deposit_root = deposit.3;
             if rollup_id != U256::ZERO {
                 return Err(anyhow::anyhow!("not handling rollup deposits"));
             }

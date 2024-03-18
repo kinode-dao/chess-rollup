@@ -22,7 +22,7 @@ const Bridge = () => {
                     return;
                 }
 
-                const rollup = new ethers.Contract('0x8b2fbb3f09123e478b55209ec533f56d6ee83b8b', ROLLUP_ABI, provider.getSigner());
+                const rollup = new ethers.Contract('0xC61655415f3d8d8eE527b45aEc7101A9c6083A81', ROLLUP_ABI, provider.getSigner());
                 const receipt = await rollup.depositEth(0, account, { value: BigNumber.from(amount) });
 
                 console.log('receipt', receipt);
