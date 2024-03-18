@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+use alloy_primitives::U256;
 use kinode_process_lib::eth;
 use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 mod bridge_lib;
 use bridge_lib::{get_old_logs, handle_log, subscribe_to_logs};
 mod chess_engine;
-use chess_engine::{ChessRollupState, ChessState, ChessTransactions};
+use chess_engine::{ChessRollupState, ChessTransactions};
 mod prover_types;
 use prover_types::ProveRequest;
 mod rollup_lib;
@@ -66,9 +67,9 @@ fn initialize(our: Address) {
     let eth_provider = eth::Provider::new(11155111, 5);
 
     // need to index all old logs
-    get_old_logs(&eth_provider, &mut state);
+    get_old_logs(&eth_provider, &mut state, U256::ZERO);
     // then we need to subscribe to new logs if a new deposit comes it
-    subscribe_to_logs(&eth_provider);
+    subscribe_to_logs(&eth_provider, U256::ZERO);
 
     main_loop(&our, &mut state, &mut connection);
 }

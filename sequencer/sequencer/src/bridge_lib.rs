@@ -12,13 +12,14 @@ sol! {
 
 /// TODO this needs to include a town_id parameter so that you can filter by *just*
 /// the deposits to the rollup you care about
-pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
+pub fn subscribe_to_logs(eth_provider: &eth::Provider, rollup_id: U256) {
     let filter = eth::Filter::new()
         .address(
             "0xC61655415f3d8d8eE527b45aEc7101A9c6083A81"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
+        .topic1(rollup_id)
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
@@ -40,13 +41,14 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
 
 /// TODO this needs to include a town_id
 /// TODO this needs to include a from_block parameter because we don't want to reprocess
-pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
+pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState, rollup_id: U256) {
     let filter = eth::Filter::new()
         .address(
             "0xC61655415f3d8d8eE527b45aEc7101A9c6083A81"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
+        .topic1(rollup_id)
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
