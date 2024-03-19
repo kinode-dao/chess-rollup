@@ -4,6 +4,7 @@ import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
 import useSequencerStore, { Transaction, WrappedTransaction } from "../store";
 import { Chessboard } from "react-chessboard";
+import { Chess } from "chess.js";
 
 interface MyGamesProps {
     baseUrl: string;
@@ -11,16 +12,32 @@ interface MyGamesProps {
 
 const MyGames = ({ baseUrl }: MyGamesProps) => {
     let { account, provider } = useWeb3React();
-    const { state: { games } } = useSequencerStore();
+    const { state, set } = useSequencerStore();
 
     const onDrop = useCallback(
         (sourceSquare: string, targetSquare: string, gameId: string) => {
+            if (!account || !provider) {
+                window.alert('Ethereum wallet is not connected');
+                return false;
+            }
+            if (!gameId || !state.games[gameId]) return false;
+
             try {
-                if (!account || !provider) {
-                    window.alert('Ethereum wallet is not connected');
+                let { board } = state.games[gameId];
+                const chess = new Chess(board);
+                const result = chess.move({
+                    from: sourceSquare,
+                    to: targetSquare,
+                    promotion: 'q'
+                });
+
+                if (result == null) {
                     return false;
                 }
-                console.log('san', `${sourceSquare}${targetSquare}`)
+                board = chess.fen();
+                state.games[gameId].board = board;
+                set({ state });
+
                 let tx: Transaction = {
                     Extension: {
                         Move: {
@@ -50,7 +67,12 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                     }).then((receipt) => {
                         console.log('receipt', receipt);
                         return true;
-                    }).catch(console.error);
+                    }).catch(err => {
+                        console.error(err);
+                        alert("There was an error making your move. Please try again");
+                        // TODO need to undo the FEN in the state
+                        return false;
+                    });
                     return false;
                 });
                 return false
@@ -59,7 +81,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                 return false
             }
         },
-        [account, provider, games]
+        [account, provider, state, set]
     );
 
     return (
@@ -68,8 +90,8 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
         >
             <h4 className="m-2">Active Games</h4>
             <div className="flex flex-col overflow-scroll">
-                {Object.keys(games).map((gameId, i) => {
-                    const { turns, board, white, black, wager } = games[gameId]; // accepted
+                {Object.keys(state.games).map((gameId, i) => {
+                    const { turns, board, white, black, wager } = state.games[gameId]; // accepted
                     if (account?.toLowerCase() == white.toLowerCase() ||
                         account?.toLowerCase() == black.toLowerCase()) {
                         if (turns % 2 == 0 && account.toLowerCase() == white.toLowerCase()) {
