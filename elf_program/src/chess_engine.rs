@@ -202,8 +202,10 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                     }
 
                     let mut board = Board::from_str(&game.board).unwrap();
-                    board = board
-                        .make_move_new(ChessMove::from_san(&board, &san).expect("invalid move"));
+                    let Ok(mov) = san.parse::<ChessMove>() else {
+                        return Err(anyhow::anyhow!("invalid san move"));
+                    };
+                    board = board.make_move_new(mov);
                     game.board = board.to_string();
                     game.turns += 1;
                     self.sequenced.push(tx);
