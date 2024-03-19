@@ -59,6 +59,9 @@ export type Transaction =
     | {
       ClaimWin: string;
     }
+    | {
+      Resign: string;
+    }
   }
 
 export interface SequencerStore {

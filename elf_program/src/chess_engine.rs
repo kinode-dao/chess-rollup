@@ -47,7 +47,8 @@ pub enum ChessTransactions {
         game_id: GameId,
         san: String,
     },
-    ClaimWin(U256),
+    ClaimWin(GameId),
+    Resign(GameId),
 }
 
 pub type ChessRollupState = RollupState<ChessState, ChessTransactions>;
@@ -244,6 +245,26 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                         return Err(anyhow::anyhow!("game is not over"));
                     }
 
+                    self.state.games.remove(&game_id);
+                    Ok(())
+                }
+                ChessTransactions::Resign(game_id) => {
+                    let game = self
+                        .state
+                        .games
+                        .get_mut(&game_id)
+                        .expect("game id doesn't exist");
+                    if game.turns % 2 == 0 {
+                        self.balances.insert(
+                            game.black.clone(),
+                            self.balances.get(&game.black).unwrap() + game.wager,
+                        );
+                    } else {
+                        self.balances.insert(
+                            game.white.clone(),
+                            self.balances.get(&game.white).unwrap() + game.wager,
+                        );
+                    }
                     self.state.games.remove(&game_id);
                     Ok(())
                 }

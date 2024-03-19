@@ -5,6 +5,7 @@ import { BigNumber } from 'ethers'
 import useSequencerStore, { Transaction, WrappedTransaction } from "../store";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
+import Resign from "./Resign";
 
 interface MyGamesProps {
     baseUrl: string;
@@ -104,6 +105,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                         onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
                                         boardOrientation="white"
                                     />
+                                    <Resign baseUrl={baseUrl} gameId={gameId} />
                                 </div>
                             )
                         } else if (turns % 2 == 1 && account.toLowerCase() == black.toLowerCase()) {
@@ -116,6 +118,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                         onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
                                         boardOrientation="black"
                                     />
+                                    <Resign baseUrl={baseUrl} gameId={gameId} />
                                 </div>
                             )
                         } else {
@@ -128,6 +131,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                         onPieceDrop={(_) => false}
                                         boardOrientation={turns % 2 == 0 ? 'black' : 'white'}
                                     />
+                                    <Resign baseUrl={baseUrl} gameId={gameId} />
                                 </div>
                             )
                         }
