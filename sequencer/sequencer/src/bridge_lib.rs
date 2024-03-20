@@ -10,14 +10,13 @@ sol! {
 
 /// TODO this needs to include a town_id parameter so that you can filter by *just*
 /// the deposits to the rollup you care about
-pub fn subscribe_to_logs(eth_provider: &eth::Provider, rollup_id: U256) {
+pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
     let filter = eth::Filter::new()
         .address(
             "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .topic1(rollup_id)
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec!["Deposit(address,uint256)"]);
@@ -37,14 +36,13 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider, rollup_id: U256) {
 
 /// TODO this needs to include a town_id
 /// TODO this needs to include a from_block parameter because we don't want to reprocess
-pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState, rollup_id: U256) {
+pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
     let filter = eth::Filter::new()
         .address(
             "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .topic1(rollup_id)
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec!["Deposit(address,uint256)"]);
@@ -75,7 +73,7 @@ where
     match log.topics[0] {
         Deposit::SIGNATURE_HASH => {
             println!("deposit event");
-            let rollup_id: U256 = log.topics[1].into();
+            // let rollup_id: U256 = log.topics[1].into();
             // let token_contract = eth::Address::from_word(log.topics[2]);
             // let uqbar_dest = eth::Address::from_word(log.topics[3]);
             // let event = DepositMade::from_log(&log)?;

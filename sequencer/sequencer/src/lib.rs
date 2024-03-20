@@ -67,9 +67,9 @@ fn initialize(our: Address) {
     let eth_provider = eth::Provider::new(11155111, 5);
 
     // need to index all old logs
-    get_old_logs(&eth_provider, &mut state, U256::ZERO);
+    get_old_logs(&eth_provider, &mut state);
     // then we need to subscribe to new logs if a new deposit comes it
-    subscribe_to_logs(&eth_provider, U256::ZERO);
+    subscribe_to_logs(&eth_provider);
 
     main_loop(&our, &mut state, &mut connection);
 }
