@@ -40,6 +40,9 @@ export type Transaction =
     }
   }
   | {
+    WithdrawTokens: string; // BigNumber
+  }
+  | {
     Extension: | {
       ProposeGame: {
         white: string;
