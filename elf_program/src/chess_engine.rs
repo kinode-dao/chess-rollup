@@ -15,6 +15,7 @@ pub struct Game {
     white: AlloyAddress,
     black: AlloyAddress,
     wager: U256,
+    status: String, // 0x... won, stalemate, active
 }
 
 /// A game of chess that has been proposed by white, but not accepted by black yet
@@ -47,7 +48,6 @@ pub enum ChessTransactions {
         game_id: GameId,
         san: String,
     },
-    ClaimWin(GameId),
     Resign(GameId),
 }
 
@@ -185,6 +185,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             white: pending_game.white.clone(),
                             black: pending_game.black.clone(),
                             wager: pending_game.wager * U256::from(2),
+                            status: "ongoing".to_string(),
                         },
                     );
                     self.state.pending_games.remove(&game_id);
@@ -209,16 +210,6 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                     board = board.make_move_new(mov);
                     game.board = board.to_string();
                     game.turns += 1;
-                    self.sequenced.push(tx);
-                    Ok(())
-                }
-                ChessTransactions::ClaimWin(game_id) => {
-                    let game = self
-                        .state
-                        .games
-                        .get_mut(&game_id)
-                        .expect("game id doesn't exist");
-                    let board = Board::from_str(&game.board).unwrap();
 
                     if board.status() == BoardStatus::Checkmate {
                         if game.turns % 2 == 0 {
@@ -232,6 +223,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                                 self.balances.get(&game.white).unwrap() + game.wager,
                             );
                         }
+                        game.status = format!("{} won", tx.pub_key);
                     } else if board.status() == BoardStatus::Stalemate {
                         self.balances.insert(
                             game.white.clone(),
@@ -241,11 +233,10 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             game.black.clone(),
                             self.balances.get(&game.black).unwrap() + game.wager / U256::from(2),
                         );
-                    } else {
-                        return Err(anyhow::anyhow!("game is not over"));
+                        game.status = "stalemate".to_string();
                     }
 
-                    self.state.games.remove(&game_id);
+                    self.sequenced.push(tx);
                     Ok(())
                 }
                 ChessTransactions::Resign(game_id) => {
@@ -265,7 +256,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             self.balances.get(&game.white).unwrap() + game.wager,
                         );
                     }
-                    self.state.games.remove(&game_id);
+                    game.status = format!("{} resigned", tx.pub_key);
                     Ok(())
                 }
             },

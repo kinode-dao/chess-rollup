@@ -14,7 +14,7 @@ export interface Game {
   white: string;
   black: string;
   wager: string;
-  // could add move history?
+  status: string,
 }
 
 export interface WrappedTransaction {
@@ -55,9 +55,6 @@ export type Transaction =
         game_id: string;
         san: string;
       }
-    }
-    | {
-      ClaimWin: string;
     }
     | {
       Resign: string;

@@ -24,8 +24,13 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
             if (!gameId || !state.games[gameId]) return false;
 
             try {
-                let { board } = state.games[gameId];
+                let { board, white, black } = state.games[gameId];
                 const chess = new Chess(board);
+
+                if (chess.isGameOver()) return false;
+                if (chess.turn() == 'w' && account.toLowerCase() != white.toLowerCase()) return false;
+                if (chess.turn() == 'b' && account.toLowerCase() != black.toLowerCase()) return false;
+
                 const result = chess.move({
                     from: sourceSquare,
                     to: targetSquare,
@@ -92,49 +97,30 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
             <h4 className="m-2">Active Games</h4>
             <div className="flex flex-col overflow-scroll">
                 {Object.keys(state.games).map((gameId, i) => {
-                    const { turns, board, white, black, wager } = state.games[gameId]; // accepted
-                    if (account?.toLowerCase() == white.toLowerCase() ||
-                        account?.toLowerCase() == black.toLowerCase()) {
-                        if (turns % 2 == 0 && account.toLowerCase() == white.toLowerCase()) {
-                            return (
-                                <div key={i}>
-                                    <p>{`Your move vs ${black}`}</p>
-                                    <Chessboard
-                                        // boardWidth={boardWidth - 16}
-                                        position={board}
-                                        onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
-                                        boardOrientation="white"
-                                    />
-                                    <Resign baseUrl={baseUrl} gameId={gameId} />
-                                </div>
-                            )
-                        } else if (turns % 2 == 1 && account.toLowerCase() == black.toLowerCase()) {
-                            return (
-                                <div key={i}>
-                                    <p>{`Your move vs ${white}`}</p>
-                                    <Chessboard
-                                        // boardWidth={boardWidth - 16}
-                                        position={board}
-                                        onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
-                                        boardOrientation="black"
-                                    />
-                                    <Resign baseUrl={baseUrl} gameId={gameId} />
-                                </div>
-                            )
-                        } else {
-                            return (
-                                <div key={i}>
-                                    <code>{`Waiting for ${turns % 2 == 0 ? white : black} to move`}</code>
-                                    <Chessboard
-                                        // boardWidth={boardWidth - 16}
-                                        position={board}
-                                        onPieceDrop={(_) => false}
-                                        boardOrientation={turns % 2 == 0 ? 'black' : 'white'}
-                                    />
-                                    <Resign baseUrl={baseUrl} gameId={gameId} />
-                                </div>
-                            )
-                        }
+                    const { status, turns, board, white, black, wager } = state.games[gameId]; // accepted
+                    const whoMovesNext = turns % 2 == 0 ? white.toLowerCase() : black.toLowerCase();
+                    const boardOrientation = account?.toLowerCase() == black.toLowerCase() ? 'black' : 'white';
+                    if (status != 'ongoing') {
+                        return (
+                            <code key={i}>{`Game ${gameId} is over, ${status}`}</code>
+                        )
+                    } else if (account?.toLowerCase() == white.toLowerCase() || account?.toLowerCase() == black.toLowerCase()) {
+                        return (
+                            <div key={i}>
+                                <p>{
+                                    account == whoMovesNext ?
+                                        `Your move vs ${account == white.toLowerCase() ? black : white}` :
+                                        `Waiting for ${account == white.toLowerCase() ? black : white} to move`
+                                }</p>
+                                <Chessboard
+                                    // boardWidth={boardWidth - 16}
+                                    position={board}
+                                    onPieceDrop={(source, target, _) => onDrop(source, target, gameId)}
+                                    boardOrientation={boardOrientation}
+                                />
+                                <Resign baseUrl={baseUrl} gameId={gameId} />
+                            </div>
+                        )
                     } else {
                         return <code key={i}>{`${gameId}: ${white} vs ${black} for ${BigNumber.from(wager)} WEI`}</code>
                     }
