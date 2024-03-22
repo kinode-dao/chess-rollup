@@ -74,6 +74,7 @@ pub trait ExecutionEngine<T> {
 
 pub struct WithdrawTree {
     elements: Vec<FixedBytes<32>>,
+    address_index: HashMap<AlloyAddress, (usize, U256)>,
     layers: Vec<Vec<FixedBytes<32>>>,
 }
 
@@ -89,12 +90,21 @@ impl WithdrawTree {
             unique_withdrawals.iter().collect();
         sorted_unique_withdrawals.sort_by_key(|&(address, _)| address);
 
+        let mut address_index = HashMap::new();
+        for (i, (address, amount)) in sorted_unique_withdrawals.iter().enumerate() {
+            address_index.insert(**address, (i, **amount));
+        }
+
         for (i, (address, amount)) in sorted_unique_withdrawals.iter().enumerate() {
             elements.push(Self::to_node(U256::from(i), **address, **amount));
         }
 
         let layers = Self::get_layers(elements.clone());
-        Self { elements, layers }
+        Self {
+            elements,
+            layers,
+            address_index,
+        }
     }
 
     pub fn root(&self) -> FixedBytes<32> {
@@ -151,14 +161,12 @@ impl WithdrawTree {
         keccak256(&[second, first].concat())
     }
 
-    pub fn get_proof(
-        &self,
-        index: usize,
-        account: AlloyAddress,
-        amount: U256,
-    ) -> Vec<FixedBytes<32>> {
-        // TODO this is definitely wrong...it's just going off the index and not on the node hash...which I guess is fine for a first pass
-        let node = Self::to_node(U256::from(index), account, amount);
+    pub fn get_proof_for(&self, address: AlloyAddress) -> (usize, U256, Vec<FixedBytes<32>>) {
+        let (index, amount) = self.address_index.get(&address).unwrap();
+        (*index, *amount, self.get_proof(*index))
+    }
+
+    pub fn get_proof(&self, index: usize) -> Vec<FixedBytes<32>> {
         let mut proof = Vec::new();
         let mut layer = self.layers[0].clone();
         while layer.len() > 1 {
