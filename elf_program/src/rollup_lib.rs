@@ -18,9 +18,10 @@ sol! {
 /// - additional state T, which can be anything
 #[derive(Serialize, Deserialize)]
 pub struct RollupState<S, T> {
-    pub sequenced: Vec<WrappedTransaction<T>>,
+    pub sequenced: Vec<SignedTransaction<T>>,
     pub balances: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
+    pub nonces: HashMap<AlloyAddress, U256>,
     pub state: S,
 }
 
@@ -29,6 +30,13 @@ pub struct RollupState<S, T> {
 /// NOTE: T needs a deterministic way to (de)serialize itself - down to the byte
 ///     otherwise sig verification will be very irritating. So 0x0A and 0x0a are different
 ///     depending on your serialization method
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SignedTransaction<T> {
+    pub pub_key: AlloyAddress, // TODO: this is superfluous - can get rid of later
+    pub sig: Signature,
+    pub tx: Transaction<T>,
+}
+
 /// TODO: need to add:
 ///     nonce
 ///     value
@@ -37,10 +45,9 @@ pub struct RollupState<S, T> {
 ///     gasLimit
 ///     ...
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WrappedTransaction<T> {
-    pub pub_key: AlloyAddress,
-    pub sig: Signature,
+pub struct Transaction<T> {
     pub data: TransactionData<T>,
+    pub nonce: U256,
 }
 
 /// All rollups must support a few basic transactions:
@@ -63,13 +70,13 @@ pub enum TransactionData<T> {
 /// The execution engine is responsible for taking a transaction and applying it to the rollup state
 /// ```rust
 /// impl ExecutionEngine<MyTransactions> for RollupState<MyState, MyTransactions> {
-///     fn execute(&mut self, tx: WrappedTransaction<MyTransactions>) -> anyhow::Result<()> {
+///     fn execute(&mut self, tx: SignedTransaction<MyTransactions>) -> anyhow::Result<()> {
 ///         // implement your logic here
 ///     }
 /// }
 /// ```
 pub trait ExecutionEngine<T> {
-    fn execute(&mut self, tx: WrappedTransaction<T>) -> anyhow::Result<()>;
+    fn execute(&mut self, tx: SignedTransaction<T>) -> anyhow::Result<()>;
 }
 
 pub struct WithdrawTree {

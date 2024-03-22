@@ -2,7 +2,7 @@ import { useState, useCallback, FormEvent } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import { Transaction, WrappedTransaction } from "../store";
+import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 
 interface WithdrawProps {
     baseUrl: string;
@@ -11,6 +11,7 @@ interface WithdrawProps {
 const Withdraw = ({ baseUrl }: WithdrawProps) => {
     let { account, provider } = useWeb3React();
     const [amount, setAmount] = useState(0);
+    const { nonces } = useSequencerStore();
 
     const withdraw = useCallback(
         async (e: FormEvent) => {
@@ -21,18 +22,21 @@ const Withdraw = ({ baseUrl }: WithdrawProps) => {
                     return;
                 }
                 let tx: Transaction = {
-                    WithdrawTokens: BigNumber.from(amount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+                    nonce: nonces[account] ? nonces[account]++ : 0,
+                    data: {
+                        WithdrawTokens: BigNumber.from(amount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+                    }
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));
                 const { v, r, s } = ethers.utils.splitSignature(signature);
 
-                let wtx: WrappedTransaction = {
+                let wtx: SignedTransaction = {
                     pub_key: account,
                     sig: {
                         r, s, v
                     },
-                    data: tx
+                    tx
                 };
 
                 const receipt = await fetch(`${baseUrl}/rpc`, {

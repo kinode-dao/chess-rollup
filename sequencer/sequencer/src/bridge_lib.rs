@@ -1,4 +1,6 @@
-use crate::{ChessRollupState, ExecutionEngine, RollupState, TransactionData, WrappedTransaction};
+use crate::{
+    ChessRollupState, ExecutionEngine, RollupState, SignedTransaction, Transaction, TransactionData,
+};
 use alloy_primitives::{address, Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
 use kinode_process_lib::eth;
@@ -81,10 +83,13 @@ where
             let sender = deposit.0;
             let amount = deposit.1;
 
-            state.execute(WrappedTransaction {
+            state.execute(SignedTransaction {
                 pub_key: sender,
                 sig: Signature::test_signature(), // TODO should be a zero sig...
-                data: TransactionData::BridgeTokens(amount),
+                tx: Transaction {
+                    nonce: U256::ZERO, // TODO I don't think this needs to be a "real" nonce but I could be wrong
+                    data: TransactionData::BridgeTokens(amount),
+                },
             })?;
         }
         _ => {

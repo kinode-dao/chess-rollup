@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { Transaction, WrappedTransaction } from './store';
+import { Transaction, SignedTransaction } from './store';
 
 export default async function sendTx(tx: Transaction, account: string, rpcUrl: string) {
     try {
@@ -14,12 +14,12 @@ export default async function sendTx(tx: Transaction, account: string, rpcUrl: s
         });
         const { v, r, s } = ethers.utils.splitSignature(signature);
 
-        let wtx: WrappedTransaction = {
+        let wtx: SignedTransaction = {
             pub_key: account,
             sig: {
                 r, s, v
             },
-            data: tx
+            tx
         };
 
         const receipt = await fetch(rpcUrl, {

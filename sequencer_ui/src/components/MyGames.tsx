@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import useSequencerStore, { Transaction, WrappedTransaction } from "../store";
+import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import Resign from "./Resign";
@@ -13,7 +13,7 @@ interface MyGamesProps {
 
 const MyGames = ({ baseUrl }: MyGamesProps) => {
     let { account, provider } = useWeb3React();
-    const { state, set } = useSequencerStore();
+    const { nonces, state, set } = useSequencerStore();
 
     const onDrop = useCallback(
         (sourceSquare: string, targetSquare: string, gameId: string) => {
@@ -45,23 +45,26 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                 set({ state });
 
                 let tx: Transaction = {
-                    Extension: {
-                        Move: {
-                            game_id: gameId,
-                            san: `${sourceSquare}${targetSquare}`,
-                        },
+                    nonce: nonces[account] ? nonces[account]++ : 0,
+                    data: {
+                        Extension: {
+                            Move: {
+                                game_id: gameId,
+                                san: `${sourceSquare}${targetSquare}`,
+                            },
+                        }
                     }
                 }
 
                 provider.getSigner().signMessage(JSON.stringify(tx)).then((signature) => {
                     const { v, r, s } = ethers.utils.splitSignature(signature);
 
-                    let wtx: WrappedTransaction = {
+                    let wtx: SignedTransaction = {
                         pub_key: account!,
                         sig: {
                             r, s, v
                         },
-                        data: tx
+                        tx
                     };
 
                     fetch(`${baseUrl}/rpc`, {

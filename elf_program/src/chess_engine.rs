@@ -1,4 +1,4 @@
-use crate::rollup_lib::{ExecutionEngine, RollupState, TransactionData, WrappedTransaction};
+use crate::rollup_lib::{ExecutionEngine, RollupState, SignedTransaction, TransactionData};
 use alloy_primitives::{Address as AlloyAddress, U256};
 use chess::{Board, BoardStatus, ChessMove};
 use serde::{Deserialize, Serialize};
@@ -59,6 +59,7 @@ impl Default for ChessRollupState {
             sequenced: vec![],
             balances: HashMap::new(),
             withdrawals: vec![],
+            nonces: HashMap::new(),
             state: ChessState {
                 pending_games: HashMap::new(),
                 games: HashMap::new(),
@@ -69,38 +70,46 @@ impl Default for ChessRollupState {
 
 impl ExecutionEngine<ChessTransactions> for ChessRollupState {
     // process a single transaction
-    fn execute(&mut self, tx: WrappedTransaction<ChessTransactions>) -> anyhow::Result<()> {
-        let decode_tx = tx.clone();
+    fn execute(&mut self, stx: SignedTransaction<ChessTransactions>) -> anyhow::Result<()> {
+        let decode_stx = stx.clone();
 
         // DO NOT verify a signature for a bridge transaction
-        if let TransactionData::BridgeTokens(amount) = decode_tx.data {
+        if let TransactionData::BridgeTokens(amount) = decode_stx.tx.data {
             self.balances.insert(
-                tx.pub_key.clone(),
-                self.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) + amount,
+                stx.pub_key.clone(),
+                self.balances.get(&stx.pub_key).unwrap_or(&U256::ZERO) + amount,
             );
             return Ok(());
         }
 
+        if decode_stx.tx.nonce != *self.nonces.get(&stx.pub_key).unwrap_or(&U256::ZERO) {
+            return Err(anyhow::anyhow!("bad nonce"));
+        } else {
+            self.nonces
+                .insert(stx.pub_key.clone(), decode_stx.tx.nonce + U256::from(1));
+        }
+
         // verify the signature
-        if decode_tx
+        if decode_stx
             .sig
-            .recover_address_from_msg(&serde_json::to_string(&decode_tx.data).unwrap().as_bytes())
+            // TODO json doesn't (de)serialize deterministically. Alternatively, use ETH RLP?
+            .recover_address_from_msg(&serde_json::to_string(&decode_stx.tx).unwrap().as_bytes())
             .unwrap()
-            != decode_tx.pub_key
+            != decode_stx.pub_key
         {
             return Err(anyhow::anyhow!("bad sig"));
         }
 
         // TODO check for underflows everywhere
-        match decode_tx.data {
+        match decode_stx.tx.data {
             TransactionData::BridgeTokens(_) => Err(anyhow::anyhow!("shouldn't happen")),
             TransactionData::WithdrawTokens(amount) => {
                 self.balances.insert(
-                    tx.pub_key.clone(),
-                    self.balances.get(&tx.pub_key).unwrap_or(&U256::ZERO) - amount,
+                    stx.pub_key.clone(),
+                    self.balances.get(&stx.pub_key).unwrap_or(&U256::ZERO) - amount,
                 );
-                self.withdrawals.push((tx.pub_key, amount));
-                self.sequenced.push(tx);
+                self.withdrawals.push((stx.pub_key, amount));
+                self.sequenced.push(stx);
                 Ok(())
             }
             TransactionData::Transfer { from, to, amount } => {
@@ -112,7 +121,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                     to.clone(),
                     self.balances.get(&to).unwrap_or(&U256::ZERO) + amount,
                 );
-                self.sequenced.push(tx);
+                self.sequenced.push(stx);
                 Ok(())
             }
             // TransactionData::Extension includes the business logic for the rollup
@@ -128,9 +137,9 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                         PendingGame {
                             white: white.clone(),
                             black: black.clone(),
-                            accepted: if white == tx.pub_key {
+                            accepted: if white == stx.pub_key {
                                 (true, false)
-                            } else if black == tx.pub_key {
+                            } else if black == stx.pub_key {
                                 (false, true)
                             } else {
                                 return Err(anyhow::anyhow!("not a player"));
@@ -138,7 +147,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             wager,
                         },
                     );
-                    self.sequenced.push(tx);
+                    self.sequenced.push(stx);
                     Ok(())
                 }
                 ChessTransactions::StartGame(game_id) => {
@@ -146,11 +155,11 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                         return Err(anyhow::anyhow!("game id doesn't exist"));
                     };
                     if pending_game.accepted == (true, false) {
-                        if tx.pub_key != pending_game.black {
+                        if stx.pub_key != pending_game.black {
                             return Err(anyhow::anyhow!("not white"));
                         }
                     } else if pending_game.accepted == (false, true) {
-                        if tx.pub_key != pending_game.white {
+                        if stx.pub_key != pending_game.white {
                             return Err(anyhow::anyhow!("not black"));
                         }
                     } else {
@@ -189,7 +198,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                         },
                     );
                     self.state.pending_games.remove(&game_id);
-                    self.sequenced.push(tx);
+                    self.sequenced.push(stx);
                     Ok(())
                 }
                 ChessTransactions::Move { game_id, san } => {
@@ -197,9 +206,9 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                         return Err(anyhow::anyhow!("game id doesn't exist"));
                     };
 
-                    if game.turns % 2 == 0 && tx.pub_key != game.white {
+                    if game.turns % 2 == 0 && stx.pub_key != game.white {
                         return Err(anyhow::anyhow!("not white's turn"));
-                    } else if game.turns % 2 == 1 && tx.pub_key != game.black {
+                    } else if game.turns % 2 == 1 && stx.pub_key != game.black {
                         return Err(anyhow::anyhow!("not black's turn"));
                     }
 
@@ -223,7 +232,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                                 self.balances.get(&game.white).unwrap() + game.wager,
                             );
                         }
-                        game.status = format!("{} won", tx.pub_key);
+                        game.status = format!("{} won", stx.pub_key);
                     } else if board.status() == BoardStatus::Stalemate {
                         self.balances.insert(
                             game.white.clone(),
@@ -236,7 +245,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                         game.status = "stalemate".to_string();
                     }
 
-                    self.sequenced.push(tx);
+                    self.sequenced.push(stx);
                     Ok(())
                 }
                 ChessTransactions::Resign(game_id) => {
@@ -256,7 +265,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             self.balances.get(&game.white).unwrap() + game.wager,
                         );
                     }
-                    game.status = format!("{} resigned", tx.pub_key);
+                    game.status = format!("{} resigned", stx.pub_key);
                     Ok(())
                 }
             },

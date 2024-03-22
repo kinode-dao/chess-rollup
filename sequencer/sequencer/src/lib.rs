@@ -159,7 +159,7 @@ fn handle_http_request(
                         ));
                     };
                     // we expect the frontend to send us an entire transaction
-                    let tx = serde_json::from_slice::<WrappedTransaction<ChessTransactions>>(
+                    let tx = serde_json::from_slice::<SignedTransaction<ChessTransactions>>(
                         &blob.bytes,
                     )?;
 

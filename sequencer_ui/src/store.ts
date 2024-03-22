@@ -17,10 +17,10 @@ export interface Game {
   status: string,
 }
 
-export interface WrappedTransaction {
+export interface SignedTransaction {
   pub_key: string; // Converted camelCase for TypeScript conventions
   sig: Sig;
-  data: Transaction; // Still a hex string, but consider using ArrayBuffer or similar for binary data handling in JS/TS
+  tx: Transaction; // Still a hex string, but consider using ArrayBuffer or similar for binary data handling in JS/TS
   // Additional fields like nonces, value, gas, gasPrice, gasLimit, etc., can be added as needed.
 }
 
@@ -30,8 +30,14 @@ export type Sig = {
   v: number;
 };
 
+export type Transaction = {
+  data: TransactionData;
+  nonce: number;
+
+}
+
 // For the `Transaction` enum, TypeScript uses a combination of types and interfaces to achieve similar functionality.
-export type Transaction =
+export type TransactionData =
   | {
     Transfer: {
       from: string;
@@ -65,8 +71,9 @@ export type Transaction =
   }
 
 export interface SequencerStore {
-  sequenced: WrappedTransaction[]
-  balances: Record<string, number>
+  sequenced: SignedTransaction[]
+  balances: Record<string, number> // TODO string?
+  nonces: Record<string, number> // TODO string?
   withdrawals: any, // TODO
   state: {
     pending_games: Record<string, PendingGame>
@@ -80,6 +87,7 @@ const useSequencerStore = create<SequencerStore>()(
     (set) => ({  // get
       sequenced: [],
       balances: {},
+      nonces: {},
       withdrawals: [],
       state: {
         pending_games: {},
