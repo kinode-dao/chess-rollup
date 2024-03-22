@@ -26,14 +26,16 @@ const Transfer = ({ baseUrl }: TransferProps) => {
 
             try {
                 let tx: Transaction = {
-                    nonce: nonces[account] ? nonces[account]++ : 0,
                     data: {
                         Transfer: {
                             from: account.toLowerCase(),
                             to: transferTo.toLowerCase(),
                             amount: BigNumber.from(transferAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
                         },
-                    }
+                    },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));

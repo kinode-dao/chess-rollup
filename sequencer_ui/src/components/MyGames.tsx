@@ -45,7 +45,6 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                 set({ state });
 
                 let tx: Transaction = {
-                    nonce: nonces[account] ? nonces[account]++ : 0,
                     data: {
                         Extension: {
                             Move: {
@@ -53,7 +52,10 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                                 san: `${sourceSquare}${targetSquare}`,
                             },
                         }
-                    }
+                    },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
                 }
 
                 provider.getSigner().signMessage(JSON.stringify(tx)).then((signature) => {

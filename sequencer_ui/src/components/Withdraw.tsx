@@ -22,10 +22,12 @@ const Withdraw = ({ baseUrl }: WithdrawProps) => {
                     return;
                 }
                 let tx: Transaction = {
-                    nonce: nonces[account] ? nonces[account]++ : 0,
                     data: {
                         WithdrawTokens: BigNumber.from(amount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
-                    }
+                    },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));

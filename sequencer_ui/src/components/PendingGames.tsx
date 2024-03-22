@@ -21,12 +21,14 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
                 }
 
                 let tx: Transaction = {
-                    nonce: nonces[account] ? nonces[account]++ : 0,
                     data: {
                         Extension: {
                             StartGame: gameId,
                         }
-                    }
+                    },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));

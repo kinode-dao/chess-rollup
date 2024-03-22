@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 
@@ -20,12 +20,14 @@ const Resign = ({ baseUrl, gameId }: ResignProps) => {
                     return;
                 }
                 let tx: Transaction = {
-                    nonce: nonces[account] ? nonces[account]++ : 0,
                     data: {
                         Extension: {
                             Resign: gameId,
                         }
-                    }
+                    },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));

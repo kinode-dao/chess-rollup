@@ -84,9 +84,6 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
 
         if decode_stx.tx.nonce != *self.nonces.get(&stx.pub_key).unwrap_or(&U256::ZERO) {
             return Err(anyhow::anyhow!("bad nonce"));
-        } else {
-            self.nonces
-                .insert(stx.pub_key.clone(), decode_stx.tx.nonce + U256::from(1));
         }
 
         // verify the signature
@@ -99,6 +96,9 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
         {
             return Err(anyhow::anyhow!("bad sig"));
         }
+
+        self.nonces
+            .insert(stx.pub_key.clone(), decode_stx.tx.nonce + U256::from(1));
 
         // TODO check for underflows everywhere
         match decode_stx.tx.data {

@@ -32,7 +32,7 @@ export type Sig = {
 
 export type Transaction = {
   data: TransactionData;
-  nonce: number;
+  nonce: string;
 
 }
 
