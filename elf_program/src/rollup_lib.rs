@@ -1,6 +1,15 @@
-use alloy_primitives::{Address as AlloyAddress, Signature, U256};
+use alloy_primitives::{keccak256, Address as AlloyAddress, FixedBytes, Signature, U256};
+use alloy_sol_types::{sol, SolValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+sol! {
+    struct Node {
+        uint256 index;
+        address account;
+        uint256 amount;
+    }
+}
 
 /// Rollup state must contain:
 /// - a list of sequenced transactions (used for proving the computation on-chain)
@@ -61,4 +70,108 @@ pub enum TransactionData<T> {
 /// ```
 pub trait ExecutionEngine<T> {
     fn execute(&mut self, tx: WrappedTransaction<T>) -> anyhow::Result<()>;
+}
+
+pub struct WithdrawTree {
+    elements: Vec<FixedBytes<32>>,
+    layers: Vec<Vec<FixedBytes<32>>>,
+}
+
+impl WithdrawTree {
+    pub fn new(withdrawals: Vec<(AlloyAddress, U256)>) -> Self {
+        let mut unique_withdrawals: HashMap<AlloyAddress, U256> = HashMap::new();
+        for (address, amount) in withdrawals {
+            *unique_withdrawals.entry(address).or_insert(U256::ZERO) += amount;
+        }
+
+        let mut elements = Vec::new();
+        let mut sorted_unique_withdrawals: Vec<(&AlloyAddress, &U256)> =
+            unique_withdrawals.iter().collect();
+        sorted_unique_withdrawals.sort_by_key(|&(address, _)| address);
+
+        for (i, (address, amount)) in sorted_unique_withdrawals.iter().enumerate() {
+            elements.push(Self::to_node(U256::from(i), **address, **amount));
+        }
+
+        let layers = Self::get_layers(elements.clone());
+        Self { elements, layers }
+    }
+
+    pub fn root(&self) -> FixedBytes<32> {
+        self.layers.last().unwrap().first().unwrap().clone()
+    }
+
+    fn to_node(index: U256, address: AlloyAddress, amount: U256) -> FixedBytes<32> {
+        keccak256(
+            &Node {
+                index: U256::from(index),
+                account: address,
+                amount: amount,
+            }
+            .abi_encode_packed(),
+        )
+    }
+
+    fn get_layers(elements: Vec<FixedBytes<32>>) -> Vec<Vec<FixedBytes<32>>> {
+        let mut layers = Vec::new();
+        layers.push(elements);
+        while layers.last().unwrap().len() > 1 {
+            layers.push(Self::get_next_layer(layers.last().unwrap().to_vec()));
+        }
+        layers
+    }
+
+    fn get_next_layer(elements: Vec<FixedBytes<32>>) -> Vec<FixedBytes<32>> {
+        return elements
+            .iter()
+            .enumerate()
+            .fold(Vec::new(), |mut layer, (idx, el)| {
+                if idx % 2 == 0 {
+                    // Hash the current element with its pair element
+                    layer.push(Self::combined_hash(*el, elements[idx + 1]));
+                }
+                layer
+            });
+    }
+
+    fn combined_hash(left: FixedBytes<32>, right: FixedBytes<32>) -> FixedBytes<32> {
+        if left == [0; 32] {
+            return right;
+        }
+        if right == [0; 32] {
+            return left;
+        }
+        Self::sort_and_concat(left, right)
+    }
+
+    fn sort_and_concat(first: FixedBytes<32>, second: FixedBytes<32>) -> FixedBytes<32> {
+        if first < second {
+            return keccak256(&[first, second].concat());
+        }
+        keccak256(&[second, first].concat())
+    }
+
+    pub fn get_proof(
+        &self,
+        index: usize,
+        account: AlloyAddress,
+        amount: U256,
+    ) -> Vec<FixedBytes<32>> {
+        // TODO this is definitely wrong...it's just going off the index and not on the node hash...which I guess is fine for a first pass
+        let node = Self::to_node(U256::from(index), account, amount);
+        let mut proof = Vec::new();
+        let mut layer = self.layers[0].clone();
+        while layer.len() > 1 {
+            let mut sibling_idx = index;
+            if sibling_idx % 2 == 0 {
+                sibling_idx += 1;
+            } else {
+                sibling_idx -= 1;
+            }
+            proof.push(layer[sibling_idx]);
+            layer = Self::get_next_layer(layer).to_vec();
+            sibling_idx /= 2;
+        }
+        proof
+    }
 }
