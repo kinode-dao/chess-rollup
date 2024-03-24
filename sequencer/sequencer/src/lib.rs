@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-use alloy_primitives::U256;
 use kinode_process_lib::eth;
 use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
@@ -25,16 +24,17 @@ const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-z
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum AdminActions {
     Prove,
+    BatchWithdrawals,
     // Disperse,
 }
 
 pub fn save_rollup_state(state: &ChessRollupState) {
-    set_state(&bincode::serialize(&state).unwrap());
+    set_state(&serde_json::to_vec(&state).unwrap());
     // NOTE this function also needs to include logic for pushing to some DA layer
 }
 
 pub fn load_rollup_state() -> ChessRollupState {
-    match get_typed_state(|bytes| Ok(bincode::deserialize::<ChessRollupState>(bytes)?)) {
+    match get_typed_state(|bytes| Ok(serde_json::from_slice::<ChessRollupState>(bytes)?)) {
         Some(rs) => rs,
         None => ChessRollupState::default(),
     }
@@ -120,10 +120,10 @@ fn handle_message(
                 panic!("expected log");
             };
             // then we handle the log with the standard bridge_lib::handle_log
-            /// which implements the default, audited way to interact with deposits
+            // which implements the default, audited way to interact with deposits
             handle_log(state, &log)
         }
-        _ => handle_admin_message(message, state, connection),
+        _ => handle_admin_message(&our, message, state, connection),
     };
 }
 
@@ -235,6 +235,7 @@ fn handle_http_request(
 
 // the only admin action we have is to prove the current state, more to come in the future
 fn handle_admin_message(
+    our: &Address,
     message: &Message,
     state: &mut ChessRollupState,
     connection: &mut Option<u32>,
@@ -265,6 +266,22 @@ fn handle_admin_message(
                 .send()
                 .unwrap();
             // NOTE the response comes in as a WebSocketPush message, see above
+            Ok(())
+        }
+        AdminActions::BatchWithdrawals => {
+            let batch = WithdrawTree::new(state.withdrawals.clone());
+            state.batches.push(batch);
+
+            // backup the withdrawal tree to vfs
+            let drive_path: String = create_drive(our.package_id(), "batches", Some(5))?;
+            let withdrawal_file = create_file(
+                &format!("{}/{}.json", &drive_path, &state.batches.len()),
+                Some(5),
+            )?;
+            withdrawal_file.write(&serde_json::to_vec(state.batches.last().unwrap()).unwrap())?;
+
+            state.withdrawals = vec![];
+
             Ok(())
         }
     }

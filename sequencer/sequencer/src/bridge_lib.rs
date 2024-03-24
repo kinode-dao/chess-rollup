@@ -1,13 +1,14 @@
 use crate::{
     ChessRollupState, ExecutionEngine, RollupState, SignedTransaction, Transaction, TransactionData,
 };
-use alloy_primitives::{address, Signature, U256};
+use alloy_primitives::{Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
 use kinode_process_lib::eth;
 use kinode_process_lib::println;
 
 sol! {
     event Deposit(address sender, uint256 amount);
+    event BatchPosted(uint256 withdrawRootIndex, bytes32 withdrawRoot);
 }
 
 /// TODO this needs to include a town_id parameter so that you can filter by *just*
@@ -47,7 +48,10 @@ pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) 
         )
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
-        .events(vec!["Deposit(address,uint256)"]);
+        .events(vec![
+            "Deposit(address,uint256)",
+            "BatchPosted(uint256,bytes32)",
+        ]);
     loop {
         match eth_provider.get_logs(&filter) {
             Ok(logs) => {
@@ -87,10 +91,24 @@ where
                 pub_key: sender,
                 sig: Signature::test_signature(), // TODO should be a zero sig...
                 tx: Transaction {
-                    nonce: U256::ZERO, // TODO I don't think this needs to be a "real" nonce but I could be wrong
+                    nonce: U256::ZERO, // NOTE: this doesn't need to be a "real" nonce since bridge txs are ex-nihilo
                     data: TransactionData::BridgeTokens(amount),
                 },
             })?;
+        }
+        BatchPosted::SIGNATURE_HASH => {
+            println!("batch event");
+            let batch = BatchPosted::abi_decode_data(&log.data, true).unwrap();
+            let index: usize = batch.0.to::<usize>();
+            let root = batch.1;
+
+            if state.batches[index].root == root {
+                println!("batch processed");
+                state.batches[index].verified = true;
+                return Ok(());
+            } else {
+                println!("TODO put this batch into some waiting period, load in state later");
+            }
         }
         _ => {
             return Err(anyhow::anyhow!("unknown event"));

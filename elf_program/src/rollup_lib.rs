@@ -21,6 +21,7 @@ pub struct RollupState<S, T> {
     pub sequenced: Vec<SignedTransaction<T>>,
     pub balances: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
+    pub batches: Vec<WithdrawTree>,
     pub nonces: HashMap<AlloyAddress, U256>,
     pub state: S,
 }
@@ -37,9 +38,7 @@ pub struct SignedTransaction<T> {
     pub tx: Transaction<T>,
 }
 
-/// TODO: need to add:
-///     nonce
-///     value
+/// TODO: add:
 ///     gas
 ///     gasPrice
 ///     gasLimit
@@ -79,43 +78,66 @@ pub trait ExecutionEngine<T> {
     fn execute(&mut self, tx: SignedTransaction<T>) -> anyhow::Result<()>;
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WithdrawTree {
-    elements: Vec<FixedBytes<32>>,
-    address_index: HashMap<AlloyAddress, (usize, U256)>,
-    layers: Vec<Vec<FixedBytes<32>>>,
+    pub root: FixedBytes<32>,
+    pub claims: HashMap<AlloyAddress, Claim>,
+    pub token_total: U256,
+    pub num_drops: usize,
+    pub verified: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Claim {
+    index: usize,
+    amount: U256,
+    proof: Vec<FixedBytes<32>>,
 }
 
 impl WithdrawTree {
     pub fn new(withdrawals: Vec<(AlloyAddress, U256)>) -> Self {
+        // 1. aggregate any non-unique withdrawals
         let mut unique_withdrawals: HashMap<AlloyAddress, U256> = HashMap::new();
         for (address, amount) in withdrawals {
             *unique_withdrawals.entry(address).or_insert(U256::ZERO) += amount;
         }
 
-        let mut elements = Vec::new();
+        // 2. sort them
         let mut sorted_unique_withdrawals: Vec<(&AlloyAddress, &U256)> =
             unique_withdrawals.iter().collect();
         sorted_unique_withdrawals.sort_by_key(|&(address, _)| address);
 
-        let mut address_index = HashMap::new();
-        for (i, (address, amount)) in sorted_unique_withdrawals.iter().enumerate() {
-            address_index.insert(**address, (i, **amount));
-        }
-
+        // 3. get the merkle tree layers
+        let mut elements = Vec::new();
         for (i, (address, amount)) in sorted_unique_withdrawals.iter().enumerate() {
             elements.push(Self::to_node(U256::from(i), **address, **amount));
         }
-
         let layers = Self::get_layers(elements.clone());
-        Self {
-            elements,
-            layers,
-            address_index,
-        }
-    }
 
-    pub fn root(&self) -> FixedBytes<32> {
-        self.layers.last().unwrap().first().unwrap().clone()
+        // 4. create the claims
+        let mut token_total = U256::ZERO;
+        let mut claims = HashMap::new();
+        for (i, (address, amount)) in sorted_unique_withdrawals.iter().enumerate() {
+            token_total += *amount;
+            claims.insert(
+                **address,
+                Claim {
+                    index: i,
+                    amount: **amount,
+                    proof: Self::get_proof(&layers, i),
+                },
+            );
+        }
+
+        Self {
+            // layers,
+            //
+            root: layers.last().unwrap().first().unwrap().clone(),
+            num_drops: sorted_unique_withdrawals.len(),
+            token_total,
+            claims,
+            verified: false,
+        }
     }
 
     fn to_node(index: U256, address: AlloyAddress, amount: U256) -> FixedBytes<32> {
@@ -168,14 +190,9 @@ impl WithdrawTree {
         keccak256(&[second, first].concat())
     }
 
-    pub fn get_proof_for(&self, address: AlloyAddress) -> (usize, U256, Vec<FixedBytes<32>>) {
-        let (index, amount) = self.address_index.get(&address).unwrap();
-        (*index, *amount, self.get_proof(*index))
-    }
-
-    pub fn get_proof(&self, index: usize) -> Vec<FixedBytes<32>> {
+    fn get_proof(layers: &Vec<Vec<FixedBytes<32>>>, index: usize) -> Vec<FixedBytes<32>> {
         let mut proof = Vec::new();
-        let mut layer = self.layers[0].clone();
+        let mut layer = layers[0].clone();
         while layer.len() > 1 {
             let mut sibling_idx = index;
             if sibling_idx % 2 == 0 {

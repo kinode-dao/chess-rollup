@@ -59,6 +59,7 @@ impl Default for ChessRollupState {
             sequenced: vec![],
             balances: HashMap::new(),
             withdrawals: vec![],
+            batches: vec![],
             nonces: HashMap::new(),
             state: ChessState {
                 pending_games: HashMap::new(),
@@ -104,6 +105,10 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
         match decode_stx.tx.data {
             TransactionData::BridgeTokens(_) => Err(anyhow::anyhow!("shouldn't happen")),
             TransactionData::WithdrawTokens(amount) => {
+                if self.balances.get(&stx.pub_key).unwrap() < &amount {
+                    return Err(anyhow::anyhow!("insufficient funds"));
+                }
+
                 self.balances.insert(
                     stx.pub_key.clone(),
                     self.balances.get(&stx.pub_key).unwrap_or(&U256::ZERO) - amount,
