@@ -30,6 +30,7 @@ pub struct PendingGame {
 /// All of the extra state we need for the chess rollup (excluding the state alread included in RollupState)
 #[derive(Serialize, Deserialize)]
 pub struct ChessState {
+    pub current_game_id: GameId,
     pub pending_games: HashMap<GameId, PendingGame>,
     pub games: HashMap<GameId, Game>,
 }
@@ -62,6 +63,7 @@ impl Default for ChessRollupState {
             batches: vec![],
             nonces: HashMap::new(),
             state: ChessState {
+                current_game_id: U256::ZERO,
                 pending_games: HashMap::new(),
                 games: HashMap::new(),
             },
@@ -118,6 +120,10 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                 Ok(())
             }
             TransactionData::Transfer { from, to, amount } => {
+                if self.balances.get(&from).unwrap() < &amount {
+                    return Err(anyhow::anyhow!("insufficient funds"));
+                }
+
                 self.balances.insert(
                     from.clone(),
                     self.balances.get(&from).unwrap_or(&U256::ZERO) - amount,
@@ -136,7 +142,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                     black,
                     wager,
                 } => {
-                    let game_id = U256::from(self.state.pending_games.len());
+                    let game_id = self.state.current_game_id;
                     self.state.pending_games.insert(
                         game_id,
                         PendingGame {
@@ -152,6 +158,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             wager,
                         },
                     );
+                    self.state.current_game_id += U256::from(1);
                     self.sequenced.push(stx);
                     Ok(())
                 }
