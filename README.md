@@ -29,16 +29,19 @@ Most pieces can stay completely fixed with no changes.
 The first thing you will need to modify is the [execution engine](./elf_program/src/engine.rs).
 This is where we define our state, transaction types, and insert our business logic.
 There are comments peppered throughout that file to help out.
+Your `FullRollupState` must implement the `ExecutionEngine` trait with the following methods:
+- `load`: loading the state from kinode (most projects can leave this as is)
+- `save`: saving the state to kinode (most projects can leave this as is)
+- `rpc`: for handling chain reads/writes over http (you may want to modify this slightly, but it is fine to leave as is)
+- `execute`: the most important part, which will execute a single transaction
 
 Next, you will want to modify the [sequencer_ui](./sequencer_ui/) so that it matches the app you are trying to create.
 Use vite to make development easier.
 
-That should be it, but there may be a few more things you want to modify depending on the requirements of your application.
-The first is the [rpc](./sequencer/sequencer/src/rpc.rs) - which is essentially just how the frontend can interact with your rollup over HTTP (read state from the chain, post transactions to the chain, etc.).
-Right now, an http `GET` returns the entire state, but you may want a more extensive/granular set of chain reads.
-In addition, an http `POST` accepts a json-encoded transaction, which you also may want to switch out for something different.
-
 Lastly, you may want to deploy your own [bridge](https://github.com/kinode-dao/chess-bridge).
-Currently, the [sequencer](./sequencer/sequencer/src/lib.rs) is set up to hit a particular bridge on sepolia. This means that you will be able to read new deposits in from that rollup, but you will not be able to post withdrawals (because you do not control the sequencer key!). For development purposes, it shouldn't matter that much, but if you would like to deploy your own bridge, that option is open, and will require some modifications to the [bridge_lib](./sequencer/sequencer/src/bridge_lib.rs) once you have deployed your bridge. In the future, this will be obviated with a more automated setup to deploy your own rollup, but for now this is part of the configuration.
+Currently, the [sequencer](./sequencer/sequencer/src/lib.rs) is set up to hit a particular bridge on sepolia.
+This means that you will be able to read new deposits in from that rollup, but you will not be able to post withdrawals (because you do not control the sequencer key!).
+For development purposes, it shouldn't matter that much, but if you would like to deploy your own bridge, that option is open, and will require some modifications to the [bridge_lib](./sequencer/sequencer/src/bridge_lib.rs) once you have deployed your bridge.
+In the future, this will be obviated with a more automated setup to deploy your own rollup, but for now this is part of the configuration.
 
 ## Prover Extension Guide (TODO)
