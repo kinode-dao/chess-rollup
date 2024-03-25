@@ -1,6 +1,7 @@
-use crate::rollup_lib::{ExecutionEngine, RollupState, SignedTransaction, TransactionData};
+use crate::rollup_lib::{BaseRollupState, ExecutionEngine, SignedTransaction, TransactionData};
 use alloy_primitives::{Address as AlloyAddress, U256};
 use chess::{Board, BoardStatus, ChessMove};
+use kinode_process_lib::{get_blob, get_typed_state, http, set_state};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -27,7 +28,7 @@ pub struct PendingGame {
     wager: U256,
 }
 
-/// While RollupState contains all the of the state that any chain will need to get started,
+/// While BaseRollupState contains all the of the state that any chain will need to get started,
 /// like balances, withdrawals, etc. ChessState contains all of the state that is specific to the
 /// chess rollup
 #[derive(Serialize, Deserialize)]
@@ -57,10 +58,10 @@ pub enum ChessTransactions {
 /// ChessState and ChessTransactions help to extend the "basic" rollup state
 /// This is the core thing that you need to extend to modify this rollup: either
 /// changing the ChessState, or changing the ChessTransactions, and making sure that
-/// they are pluggable with RollupState.
-pub type ChessRollupState = RollupState<ChessState, ChessTransactions>;
+/// they are pluggable with BaseRollupState.
+pub type FullRollupState = BaseRollupState<ChessState, ChessTransactions>;
 
-impl Default for ChessRollupState {
+impl Default for FullRollupState {
     fn default() -> Self {
         Self {
             sequenced: vec![],
@@ -80,7 +81,7 @@ impl Default for ChessRollupState {
 
 /// This is where all of the business logic for the chess rollup lives.
 /// The `execute` function is called by the sequencer to process a single transaction.
-impl ExecutionEngine<ChessTransactions> for ChessRollupState {
+impl ExecutionEngine<ChessTransactions> for FullRollupState {
     // process a single transaction
     fn execute(&mut self, stx: SignedTransaction<ChessTransactions>) -> anyhow::Result<()> {
         let decode_stx = stx.clone();
@@ -291,6 +292,69 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                     Ok(())
                 }
             },
+        }
+    }
+    fn save(&self) -> anyhow::Result<()> {
+        set_state(&serde_json::to_vec(&self).unwrap());
+        Ok(())
+    }
+    fn load() -> Self
+    where
+        Self: Sized,
+    {
+        match get_typed_state(|bytes| Ok(serde_json::from_slice::<FullRollupState>(bytes)?)) {
+            Some(rs) => rs,
+            None => FullRollupState::default(),
+        }
+    }
+    fn rpc(&mut self, req: &http::IncomingHttpRequest) -> anyhow::Result<()> {
+        match req.method()?.as_str() {
+            "GET" => {
+                // For simplicity, we just return the entire state as the only chain READ operation
+                http::send_response(
+                    http::StatusCode::OK,
+                    Some(HashMap::from([(
+                        String::from("Content-Type"),
+                        String::from("application/json"),
+                    )])),
+                    serde_json::to_vec(&self)?,
+                );
+                Ok(())
+            }
+            "POST" => {
+                // get the blob from the request
+                let Some(blob) = get_blob() else {
+                    return Ok(http::send_response(
+                        http::StatusCode::BAD_REQUEST,
+                        None,
+                        vec![],
+                    ));
+                };
+                // deserialize the blob into a SignedTransaction
+                let tx =
+                    serde_json::from_slice::<SignedTransaction<ChessTransactions>>(&blob.bytes)?;
+
+                // execute the transaction, which will propagate any errors like a bad signature or bad move
+                self.execute(tx)?;
+                self.save()?;
+                // send a confirmation to the frontend that the transaction was sequenced
+                http::send_response(
+                    http::StatusCode::OK,
+                    None,
+                    "todo send tx receipt or error here"
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                );
+
+                Ok(())
+            }
+            // Any other http method will be rejected.
+            _ => Ok(http::send_response(
+                http::StatusCode::METHOD_NOT_ALLOWED,
+                None,
+                vec![],
+            )),
         }
     }
 }

@@ -1,15 +1,14 @@
-// #![no_main]
-// sp1_zkvm::entrypoint!(main);
-use alloy_primitives::{address, Address as AlloyAddress, U256};
+#![no_main]
+sp1_zkvm::entrypoint!(main);
 
-mod chess_engine;
-use chess_engine::*;
+mod engine;
+use engine::*;
 mod rollup_lib;
 use rollup_lib::*;
 
 pub fn main() {
     // read in the old state
-    let mut state = sp1_zkvm::io::read::<ChessRollupState>();
+    let mut state = sp1_zkvm::io::read::<FullRollupState>();
     // read in the next batch of transactions
     let mem_pool = sp1_zkvm::io::read::<Vec<SignedTransaction<ChessTransactions>>>();
 

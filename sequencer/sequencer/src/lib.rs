@@ -2,7 +2,7 @@
 use kinode_process_lib::eth;
 use kinode_process_lib::kernel_types::MessageType;
 use kinode_process_lib::{
-    await_message, call_init, get_blob, get_typed_state, http, println, set_state,
+    await_message, call_init, get_blob, http, println,
     vfs::{create_drive, create_file},
     Address, Message, Request,
 };
@@ -11,13 +11,12 @@ use sp1_core::SP1Stdin;
 
 mod bridge_lib;
 use bridge_lib::{get_old_logs, handle_log, subscribe_to_logs};
-mod chess_engine;
-use chess_engine::ChessRollupState;
+mod engine;
+use engine::FullRollupState;
 mod prover_types;
 use prover_types::ProveRequest;
 mod rollup_lib;
 use rollup_lib::*;
-mod rpc;
 
 const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-zkvm-elf");
 
@@ -25,18 +24,6 @@ const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-z
 enum AdminActions {
     Prove,
     BatchWithdrawals,
-}
-
-pub fn save_rollup_state(state: &ChessRollupState) {
-    set_state(&serde_json::to_vec(&state).unwrap());
-    // NOTE this function also needs to include logic for pushing to some DA layer
-}
-
-pub fn load_rollup_state() -> ChessRollupState {
-    match get_typed_state(|bytes| Ok(serde_json::from_slice::<ChessRollupState>(bytes)?)) {
-        Some(rs) => rs,
-        None => ChessRollupState::default(),
-    }
 }
 
 // Boilerplate: generate the wasm bindings for a process
@@ -67,14 +54,14 @@ fn initialize(our: Address) {
     http::bind_ext_path("/").unwrap();
 
     // Grab our state
-    let mut state: ChessRollupState = load_rollup_state();
+    let mut state = FullRollupState::load();
 
     // create a new eth provider to read logs from chain (deposits and state root updates)
     let eth_provider = eth::Provider::new(11155111, 5);
 
     // index all old deposits
     get_old_logs(&eth_provider, &mut state);
-    save_rollup_state(&state);
+    state.save();
     // subscribe to new deposits
     subscribe_to_logs(&eth_provider, state.l1_block);
 
@@ -82,7 +69,7 @@ fn initialize(our: Address) {
     main_loop(&our, &mut state, &mut None);
 }
 
-fn main_loop(our: &Address, state: &mut ChessRollupState, connection: &mut Option<u32>) {
+fn main_loop(our: &Address, state: &mut FullRollupState, connection: &mut Option<u32>) {
     loop {
         // Call await_message() to wait for any incoming messages.
         // If we get a network error, make a print and throw it away.
@@ -104,7 +91,7 @@ fn main_loop(our: &Address, state: &mut ChessRollupState, connection: &mut Optio
 fn handle_message(
     our: &Address,
     message: &Message,
-    state: &mut ChessRollupState,
+    state: &mut FullRollupState,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     // no responses
@@ -142,7 +129,7 @@ fn handle_message(
 /// Handle HTTP requests from our own frontend.
 fn handle_http_request(
     our: &Address,
-    state: &mut ChessRollupState,
+    state: &mut FullRollupState,
     connection: &mut Option<u32>,
     message: &Message,
 ) -> anyhow::Result<()> {
@@ -204,7 +191,7 @@ fn handle_http_request(
 fn handle_admin_message(
     our: &Address,
     message: &Message,
-    state: &mut ChessRollupState,
+    state: &mut FullRollupState,
     connection: &mut Option<u32>,
 ) -> anyhow::Result<()> {
     match serde_json::from_slice::<AdminActions>(message.body())? {

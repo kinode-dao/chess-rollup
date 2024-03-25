@@ -1,5 +1,6 @@
 use crate::{
-    ChessRollupState, ExecutionEngine, RollupState, SignedTransaction, Transaction, TransactionData,
+    BaseRollupState, ExecutionEngine, FullRollupState, SignedTransaction, Transaction,
+    TransactionData,
 };
 use alloy_primitives::{Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
@@ -39,7 +40,7 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider, from_block: U256) {
 }
 
 /// TODO this needs to include a from_block parameter because we don't want to reprocess
-pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
+pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut FullRollupState) {
     let filter = eth::Filter::new()
         .address(
             "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
@@ -72,9 +73,9 @@ pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) 
     }
 }
 
-pub fn handle_log<S, T>(state: &mut RollupState<S, T>, log: &eth::Log) -> anyhow::Result<()>
+pub fn handle_log<S, T>(state: &mut BaseRollupState<S, T>, log: &eth::Log) -> anyhow::Result<()>
 where
-    RollupState<S, T>: ExecutionEngine<T>,
+    BaseRollupState<S, T>: ExecutionEngine<T>,
 {
     match log.topics[0] {
         Deposit::SIGNATURE_HASH => {

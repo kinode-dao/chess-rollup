@@ -20,7 +20,7 @@ sol! {
 /// - a list of batches (new states that users can withdraw against on L1)
 /// - additional state S, which can be anything. In this repo, we use it for storing chess game state
 #[derive(Serialize, Deserialize)]
-pub struct RollupState<S, T> {
+pub struct BaseRollupState<S, T> {
     pub sequenced: Vec<SignedTransaction<T>>,
     pub balances: HashMap<AlloyAddress, U256>,
     pub nonces: HashMap<AlloyAddress, U256>,
@@ -69,11 +69,11 @@ pub enum TransactionData<T> {
 }
 
 /// The ExecutionEngine is responsible for taking a transaction and applying it to the rollup state
-/// In this repo, we impl ExecutionEngine for ChessRollupState
+/// In this repo, we impl ExecutionEngine for FullRollupState
 /// The goal of this abstraction is to keep the `sequencer` as general as possible, so that it can
 /// execute arbitrary rollup code without knowing any specifics about the rollup
 /// ```rust
-/// impl ExecutionEngine<MyTransactions> for RollupState<MyState, MyTransactions> {
+/// impl ExecutionEngine<MyTransactions> for BaseRollupState<MyState, MyTransactions> {
 ///     fn execute(&mut self, tx: SignedTransaction<MyTransactions>) -> anyhow::Result<()> {
 ///         // implement your logic here
 ///     }
@@ -81,17 +81,20 @@ pub enum TransactionData<T> {
 /// ```
 pub trait ExecutionEngine<T> {
     fn execute(&mut self, tx: SignedTransaction<T>) -> anyhow::Result<()>;
+    fn save(&self) -> anyhow::Result<()>;
+    fn load() -> Self;
+    fn rpc(&mut self, req: &IncomingHttpRequest) -> anyhow::Result<()>;
 }
 
 /// The RpcApi trait implements all the logic for the RPC API
 /// There is a good reason to separate this from the ExecutionEngine: the EE should be ignorant of
 /// all things related to kinode, http, etc. It should only know how to apply transactions.
-pub trait RpcApi<S, T>
-where
-    S: ExecutionEngine<T>,
-{
-    fn rpc(&mut self, req: &IncomingHttpRequest) -> anyhow::Result<()>;
-}
+// pub trait RpcApi<S, T>
+// where
+//     S: ExecutionEngine<T>,
+// {
+//     fn rpc(&mut self, req: &IncomingHttpRequest) -> anyhow::Result<()>;
+// }
 
 /// To enable withdrawals, we need to create a Merkle tree of all the pending withdraws.
 /// Every time a new batch is made and posted, we generate all the proofs that will let users

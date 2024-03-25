@@ -26,7 +26,7 @@ You can then go to `http://localhost:8080/sequencer:rollup:goldfinger.os` to see
 This chess example was written in a way to make it very easy to modify.
 Most pieces can stay completely fixed with no changes.
 
-The first thing you will need to modify is the [execution engine](./elf_program/src/chess_engine.rs).
+The first thing you will need to modify is the [execution engine](./elf_program/src/engine.rs).
 This is where we define our state, transaction types, and insert our business logic.
 There are comments peppered throughout that file to help out.
 
