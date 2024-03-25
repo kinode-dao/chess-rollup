@@ -74,8 +74,9 @@ fn initialize(our: Address) {
 
     // index all old deposits
     get_old_logs(&eth_provider, &mut state);
+    save_rollup_state(&state);
     // subscribe to new deposits
-    subscribe_to_logs(&eth_provider);
+    subscribe_to_logs(&eth_provider, state.l1_block);
 
     // enter the main event loop
     main_loop(&our, &mut state, &mut None);

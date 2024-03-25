@@ -11,14 +11,14 @@ sol! {
     event BatchPosted(uint256 withdrawRootIndex, bytes32 withdrawRoot);
 }
 
-pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
+pub fn subscribe_to_logs(eth_provider: &eth::Provider, from_block: U256) {
     let filter = eth::Filter::new()
         .address(
             "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .from_block(5436837)
+        .from_block(from_block.to::<u64>() + 1)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
             "Deposit(address,uint256)",
@@ -46,7 +46,7 @@ pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) 
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .from_block(5436837)
+        .from_block(state.l1_block.to::<u64>() + 1)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
             "Deposit(address,uint256)",
@@ -88,7 +88,10 @@ where
                 sig: Signature::test_signature(), // NOTE: deposit txs are unsigned (TODO should be a null sig)
                 tx: Transaction {
                     nonce: U256::ZERO, // NOTE: this doesn't need to be a "real" nonce since deposits are ex-nihilo
-                    data: TransactionData::BridgeTokens(amount),
+                    data: TransactionData::BridgeTokens {
+                        amount,
+                        block: log.block_number.unwrap(),
+                    },
                 },
             })?;
         }
@@ -97,7 +100,7 @@ where
             let index: usize = batch.0.to::<usize>();
             let root = batch.1;
 
-            if state.batches[index].root == root {
+            if state.batches.len() > index && state.batches[index].root == root {
                 state.batches[index].verified = true;
                 return Ok(());
             } else {

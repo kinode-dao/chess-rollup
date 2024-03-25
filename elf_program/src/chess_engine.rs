@@ -62,9 +62,10 @@ impl Default for ChessRollupState {
         Self {
             sequenced: vec![],
             balances: HashMap::new(),
+            nonces: HashMap::new(),
             withdrawals: vec![],
             batches: vec![],
-            nonces: HashMap::new(),
+            l1_block: U256::ZERO,
             state: ChessState {
                 next_game_id: U256::ZERO,
                 pending_games: HashMap::new(),
@@ -80,11 +81,12 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
         let decode_stx = stx.clone();
 
         // DO NOT verify a signature for a bridge transaction
-        if let TransactionData::BridgeTokens(amount) = decode_stx.tx.data {
+        if let TransactionData::BridgeTokens { amount, block } = decode_stx.tx.data {
             self.balances.insert(
                 stx.pub_key.clone(),
                 self.balances.get(&stx.pub_key).unwrap_or(&U256::ZERO) + amount,
             );
+            self.l1_block = block;
             return Ok(());
         }
 
@@ -108,7 +110,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
 
         // TODO check for underflows everywhere
         match decode_stx.tx.data {
-            TransactionData::BridgeTokens(_) => Err(anyhow::anyhow!("shouldn't happen")),
+            TransactionData::BridgeTokens { .. } => Err(anyhow::anyhow!("shouldn't happen")),
             TransactionData::WithdrawTokens(amount) => {
                 if self.balances.get(&stx.pub_key).unwrap() < &amount {
                     return Err(anyhow::anyhow!("insufficient funds"));

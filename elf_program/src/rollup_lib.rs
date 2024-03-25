@@ -25,6 +25,7 @@ pub struct RollupState<S, T> {
     pub nonces: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
     pub batches: Vec<WithdrawTree>,
+    pub l1_block: U256,
     pub state: S,
 }
 
@@ -53,7 +54,10 @@ pub struct Transaction<T> {
 /// For instance, in this repo we use it for starting chess games, moving pieces, etc.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TransactionData<T> {
-    BridgeTokens(U256),
+    BridgeTokens {
+        amount: U256,
+        block: U256,
+    },
     WithdrawTokens(U256),
     Transfer {
         from: AlloyAddress,
