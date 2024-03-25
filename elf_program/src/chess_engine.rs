@@ -15,7 +15,7 @@ pub struct Game {
     white: AlloyAddress,
     black: AlloyAddress,
     wager: U256,
-    status: String, // 0x... won, stalemate, active
+    status: String, // TODO should be an enum: "<Address> won", "stalemate", "active"
 }
 
 /// A game of chess that has been proposed by white, but not accepted by black yet
@@ -27,10 +27,12 @@ pub struct PendingGame {
     wager: U256,
 }
 
-/// All of the extra state we need for the chess rollup (excluding the state alread included in RollupState)
+/// While RollupState contains all the of the state that any chain will need to get started,
+/// like balances, withdrawals, etc. ChessState contains all of the state that is specific to the
+/// chess rollup
 #[derive(Serialize, Deserialize)]
 pub struct ChessState {
-    pub current_game_id: GameId,
+    pub next_game_id: GameId,
     pub pending_games: HashMap<GameId, PendingGame>,
     pub games: HashMap<GameId, Game>,
 }
@@ -52,6 +54,7 @@ pub enum ChessTransactions {
     Resign(GameId),
 }
 
+/// ChessState and ChessTransactions help to extend the "basic" rollup state
 pub type ChessRollupState = RollupState<ChessState, ChessTransactions>;
 
 impl Default for ChessRollupState {
@@ -63,7 +66,7 @@ impl Default for ChessRollupState {
             batches: vec![],
             nonces: HashMap::new(),
             state: ChessState {
-                current_game_id: U256::ZERO,
+                next_game_id: U256::ZERO,
                 pending_games: HashMap::new(),
                 games: HashMap::new(),
             },
@@ -142,7 +145,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                     black,
                     wager,
                 } => {
-                    let game_id = self.state.current_game_id;
+                    let game_id = self.state.next_game_id;
                     self.state.pending_games.insert(
                         game_id,
                         PendingGame {
@@ -158,7 +161,7 @@ impl ExecutionEngine<ChessTransactions> for ChessRollupState {
                             wager,
                         },
                     );
-                    self.state.current_game_id += U256::from(1);
+                    self.state.next_game_id += U256::from(1);
                     self.sequenced.push(stx);
                     Ok(())
                 }

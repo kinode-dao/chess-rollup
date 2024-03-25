@@ -14,35 +14,31 @@ sol! {
 /// Rollup state must contain:
 /// - a list of sequenced transactions (used for proving the computation on-chain)
 /// - list of balances (for the gas token)
-/// - a list of withdrawals (for use on the provided L1 bridge)
-/// - additional state T, which can be anything
+/// - a map of nonces (for replay protection)
+/// - a list of pending withdrawals (not yet included in a batch)
+/// - a list of batches (new states that users can withdraw against on L1)
+/// - additional state S, which can be anything. In this repo, we use it for storing chess game state
 #[derive(Serialize, Deserialize)]
 pub struct RollupState<S, T> {
     pub sequenced: Vec<SignedTransaction<T>>,
     pub balances: HashMap<AlloyAddress, U256>,
+    pub nonces: HashMap<AlloyAddress, U256>,
     pub withdrawals: Vec<(AlloyAddress, U256)>,
     pub batches: Vec<WithdrawTree>,
-    pub nonces: HashMap<AlloyAddress, U256>,
     pub state: S,
 }
 
-/// This is how transactions must be signed and verified for each rollup
-/// The event loop will ingest the public key, signature, and transaction data
-/// NOTE: T needs a deterministic way to (de)serialize itself - down to the byte
-///     otherwise sig verification will be very irritating. So 0x0A and 0x0a are different
-///     depending on your serialization method
+/// a SignedTransaction is just a wrapper around the different operations that your rollup supports
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SignedTransaction<T> {
-    pub pub_key: AlloyAddress, // TODO: this is superfluous - can get rid of later
+    pub pub_key: AlloyAddress, // TODO: get rid of this - superfluous!
     pub sig: Signature,
     pub tx: Transaction<T>,
 }
 
-/// TODO: add:
-///     gas
-///     gasPrice
-///     gasLimit
-///     ...
+/// Transaction wraps the actual data that you want to execute.
+/// Right now it just contains the data and a nonce, but later it will also need to include gas
+///  gasPrice, gasLimit, etc. (TODO)
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Transaction<T> {
     pub data: TransactionData<T>,
@@ -53,7 +49,8 @@ pub struct Transaction<T> {
 /// - depositing tokens from L1 to L2
 /// - withdrawing tokens from L2 to L1
 /// - transferring the gas token between accounts
-/// - an enum T for any additional transaction types you may want to add
+/// Any remaining "special" transactions can be handled by the extension field.
+/// For instance, in this repo we use it for starting chess games, moving pieces, etc.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TransactionData<T> {
     BridgeTokens(U256),
@@ -66,7 +63,10 @@ pub enum TransactionData<T> {
     Extension(T),
 }
 
-/// The execution engine is responsible for taking a transaction and applying it to the rollup state
+/// The ExecutionEngine is responsible for taking a transaction and applying it to the rollup state
+/// In this repo, we impl ExecutionEngine for ChessRollupState
+/// The goal of this abstraction is to keep the `sequencer` as general as possible, so that it can
+/// execute arbitrary rollup code without knowing any specifics about the rollup
 /// ```rust
 /// impl ExecutionEngine<MyTransactions> for RollupState<MyState, MyTransactions> {
 ///     fn execute(&mut self, tx: SignedTransaction<MyTransactions>) -> anyhow::Result<()> {
@@ -78,6 +78,10 @@ pub trait ExecutionEngine<T> {
     fn execute(&mut self, tx: SignedTransaction<T>) -> anyhow::Result<()>;
 }
 
+/// To enable withdrawals, we need to create a Merkle tree of all the pending withdraws.
+/// Every time a new batch is made and posted, we generate all the proofs that will let users
+/// withdraw against the new state root.
+/// NOTE: this is heavily based on the Uniswap MerkleDistributor contract
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WithdrawTree {
     pub root: FixedBytes<32>,
@@ -87,6 +91,7 @@ pub struct WithdrawTree {
     pub verified: bool,
 }
 
+/// The information an adresss needs to withdraw their tokens
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Claim {
     index: usize,
@@ -94,6 +99,9 @@ pub struct Claim {
     proof: Vec<FixedBytes<32>>,
 }
 
+/// To create a new withdraw root, call WithdrawTree::new(pending_withdrawals)
+/// The WithdrawTree can then be distributed to users, allowing them to withdraw against the
+/// new state root.
 impl WithdrawTree {
     pub fn new(withdrawals: Vec<(AlloyAddress, U256)>) -> Self {
         // 1. aggregate any non-unique withdrawals
@@ -130,8 +138,6 @@ impl WithdrawTree {
         }
 
         Self {
-            // layers,
-            //
             root: layers.last().unwrap().first().unwrap().clone(),
             num_drops: sorted_unique_withdrawals.len(),
             token_total,

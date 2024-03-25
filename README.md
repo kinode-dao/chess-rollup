@@ -1,26 +1,26 @@
 # ZK Rollup Template
 ## Overview
-This repo contains 3 components:
+This repo contains 2 main components:
 - `elf_program`: where the core logic of your rollup execution engine will live, along with its types
-- `prover_extension`: which you can run alongside the `sequencer` to prove the state of your rollup (this repo DOES NOT need to be modified in any way)
 - `sequencer`: which contains "everything else":
-  - RPC API definition and handling
-  - sending messages to the `prover_extension`
-  - subscribing/handling deposit events on L1
+  - RPC API
+  - bridge interactions (deposits/withdrawals)
   - serving the web UI for your rollup
-  - (SOON) replicating data to a data availability layer
+  - proving the state transition was valid (via the [prover extension](./prover_extension/))
+  - (SOON) replicating data to a data availability comittee (or EigenDA/Celestia/L1, TBD)
 
-## Quick Start
+## Developer Quick Start
 (assuming your kinode is running on port 8080)
 ```bash
 cd elf_program
 cargo prove build
 cd ../sequencer
 kit bs
+# (optional) if you want to use the prover
 cd ../prover_extension
 cargo run --release -- --port 8080
 ```
-You can then go to `http://localhost:5173/sequencer:rollup:goldfinger.os` to see the UI and play around with sending transactions to your sequencer (make sure you have metamask installed in your browser!)
+You can then go to `http://localhost:8080/sequencer:rollup:goldfinger.os` to see the UI and play around with sending transactions to your sequencer (make sure you have metamask installed in your browser!)
 
 ## Developer Guide
 ### `elf_program`

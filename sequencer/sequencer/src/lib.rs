@@ -25,7 +25,6 @@ const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-z
 enum AdminActions {
     Prove,
     BatchWithdrawals,
-    // Disperse,
 }
 
 pub fn save_rollup_state(state: &ChessRollupState) {
@@ -40,6 +39,7 @@ pub fn load_rollup_state() -> ChessRollupState {
     }
 }
 
+// Boilerplate: generate the wasm bindings for a process
 wit_bindgen::generate!({
     path: "wit",
     world: "process",
@@ -48,36 +48,46 @@ wit_bindgen::generate!({
     },
 });
 
+// After generating bindings, use this macro to define the Component struct
+// and its init() function, which the kernel will look for on startup.
 call_init!(initialize);
 
 fn initialize(our: Address) {
+    // A little printout to show in terminal that the process has started.
     println!("{}: started", our.package());
 
+    // Serve the index.html and other UI files found in pkg/ui at the root path.
+    // authenticated=true, local_only=false
     http::serve_ui(&our, "ui", true, false, vec!["/"]).unwrap();
-    // all rpc requests come into /rpc (reads and writes)
+    // Allow HTTP requests to be made to /rpc; they will be handled dynamically.
+    // The handling logic for this is the RPC API for reads and writes to the rollup.
     http::bind_http_path("/rpc", true, false).unwrap();
-    // prover_extension connects via ws to /
+    // Allow websockets to be opened at / (our process ID will be prepended).
+    // This lets the optional prover_extension connect to us.
     http::bind_ext_path("/").unwrap();
 
+    // Grab our state
     let mut state: ChessRollupState = load_rollup_state();
-    // prover_extension connection
-    let mut connection: Option<u32> = None;
 
-    // right now our bridge is on sepolia, 5s timeout
+    // create a new eth provider to read logs from chain (deposits and state root updates)
     let eth_provider = eth::Provider::new(11155111, 5);
 
-    // need to index all old logs
+    // index all old deposits
     get_old_logs(&eth_provider, &mut state);
-    // then we need to subscribe to new logs if a new deposit comes it
+    // subscribe to new deposits
     subscribe_to_logs(&eth_provider);
 
-    main_loop(&our, &mut state, &mut connection);
+    // enter the main event loop
+    main_loop(&our, &mut state, &mut None);
 }
 
 fn main_loop(our: &Address, state: &mut ChessRollupState, connection: &mut Option<u32>) {
     loop {
+        // Call await_message() to wait for any incoming messages.
+        // If we get a network error, make a print and throw it away.
         match await_message() {
             Err(send_error) => {
+                // TODO: surface this to the user
                 println!("{our}: got network error: {send_error:?}");
                 continue;
             }
@@ -89,6 +99,7 @@ fn main_loop(our: &Address, state: &mut ChessRollupState, connection: &mut Optio
     }
 }
 
+/// Handle sequencer messages from ourself *or* other nodes.
 fn handle_message(
     our: &Address,
     message: &Message,
@@ -136,10 +147,12 @@ fn handle_http_request(
 ) -> anyhow::Result<()> {
     match serde_json::from_slice::<http::HttpServerRequest>(message.body())? {
         // GETs and POSTs are reads and writes to the chain, respectively
+        // essentially, this is our RPC API
         http::HttpServerRequest::Http(ref incoming) => {
             match incoming.method()?.as_str() {
                 "GET" => {
-                    // serialize the entire state and send it to the frontend
+                    // We only support one kind of chain READ: getting the entire current state
+                    // TODO abstract this
                     http::send_response(
                         http::StatusCode::OK,
                         Some(HashMap::from([(
@@ -227,7 +240,7 @@ fn handle_http_request(
             let drive_path: String = create_drive(our.package_id(), "proofs", Some(5))?;
             let proof_file = create_file(&format!("{}/proof.json", &drive_path), Some(5))?;
             proof_file.write(&blob)?;
-            // TODO verify this proof on L1
+            // TODO post this proof to the L1 verifier
             Ok(())
         }
     }

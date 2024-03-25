@@ -11,8 +11,6 @@ sol! {
     event BatchPosted(uint256 withdrawRootIndex, bytes32 withdrawRoot);
 }
 
-/// TODO this needs to include a town_id parameter so that you can filter by *just*
-/// the deposits to the rollup you care about
 pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
     let filter = eth::Filter::new()
         .address(
@@ -22,7 +20,10 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
         )
         .from_block(5436837)
         .to_block(eth::BlockNumberOrTag::Latest)
-        .events(vec!["Deposit(address,uint256)"]);
+        .events(vec![
+            "Deposit(address,uint256)",
+            "BatchPosted(uint256,bytes32)",
+        ]);
 
     loop {
         match eth_provider.subscribe(1, filter.clone()) {
@@ -37,7 +38,6 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
     println!("subscribed to logs successfully");
 }
 
-/// TODO this needs to include a town_id
 /// TODO this needs to include a from_block parameter because we don't want to reprocess
 pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
     let filter = eth::Filter::new()
@@ -79,35 +79,30 @@ where
     match log.topics[0] {
         Deposit::SIGNATURE_HASH => {
             println!("deposit event");
-            // let rollup_id: U256 = log.topics[1].into();
-            // let token_contract = eth::Address::from_word(log.topics[2]);
-            // let uqbar_dest = eth::Address::from_word(log.topics[3]);
-            // let event = DepositMade::from_log(&log)?;
             let deposit = Deposit::abi_decode_data(&log.data, true).unwrap();
             let sender = deposit.0;
             let amount = deposit.1;
 
             state.execute(SignedTransaction {
                 pub_key: sender,
-                sig: Signature::test_signature(), // TODO should be a zero sig...
+                sig: Signature::test_signature(), // NOTE: deposit txs are unsigned (TODO should be a null sig)
                 tx: Transaction {
-                    nonce: U256::ZERO, // NOTE: this doesn't need to be a "real" nonce since bridge txs are ex-nihilo
+                    nonce: U256::ZERO, // NOTE: this doesn't need to be a "real" nonce since deposits are ex-nihilo
                     data: TransactionData::BridgeTokens(amount),
                 },
             })?;
         }
         BatchPosted::SIGNATURE_HASH => {
-            println!("batch event");
             let batch = BatchPosted::abi_decode_data(&log.data, true).unwrap();
             let index: usize = batch.0.to::<usize>();
             let root = batch.1;
 
             if state.batches[index].root == root {
-                println!("batch processed");
                 state.batches[index].verified = true;
                 return Ok(());
             } else {
-                println!("TODO put this batch into some waiting period, load in state later");
+                // If this ever happens, it means the sequencer is in an inconsistent state with the chain
+                println!("sequencer: critical error, state out of sync with chain");
             }
         }
         _ => {

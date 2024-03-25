@@ -1,2 +1,5 @@
-# Note
-no work has begun on the prover runtime extension. I just use this script to generate proofs. A real runtime extension is coming later
+# Prover Extension
+This is a generic SP1 prover extension.
+It can take in any program (compiled with `cargo prove build`), and any inputs, and produce a corresponding proof.
+
+In the future, this will be an integral part of updating the rollup state.
