@@ -22,15 +22,23 @@ cargo run --release -- --port 8080
 ```
 You can then go to `http://localhost:8080/sequencer:rollup:goldfinger.os` to see the UI and play around with sending transactions to your sequencer (make sure you have metamask installed in your browser!)
 
-## Developer Guide
-### `elf_program`
-Start in the `elf_program`.
-[main.rs](./elf_program/src/main.rs) and [rollup_lib.rs](./elf_program/src/rollup_lib.rs) can stay the same, do not edit them.
-They will be libraries that you import one day, but for now just leave them alone.
-In [chess_engine.rs](./elf_program/src/chess_engine.rs), you can see how we build around the `rollup_lib` by defining our own custom `ChessState` and `ChessTransactions`, and then implementing the `ExecutionEngine` trait for `RollupState<ChessState, ChessTransactions>` to wrap everything together.
-The `execute` function is the core logic of our chain, which you can modify at your leisure.
+## Guide to Modifying the Rollup
+This chess example was written in a way to make it very easy to modify.
+Most pieces can stay completely fixed with no changes.
 
-### `sequencer`
-Editing the `elf_program` for your needs is essentially the "toy" version of the app.
-All of the productionization of that chain now has to live in the Kinode sequencer package. 
-The code is reasonably well documented, I would reccomend just reading the comments to get a feel for it
+The first thing you will need to modify is the [execution engine](./elf_program/src/chess_engine.rs).
+This is where we define our state, transaction types, and insert our business logic.
+There are comments peppered throughout that file to help out.
+
+Next, you will want to modify the [sequencer_ui](./sequencer_ui/) so that it matches the app you are trying to create.
+Use vite to make development easier.
+
+That should be it, but there may be a few more things you want to modify depending on the requirements of your application.
+The first is the [rpc](./sequencer/sequencer/src/rpc.rs) - which is essentially just how the frontend can interact with your rollup over HTTP (read state from the chain, post transactions to the chain, etc.).
+Right now, an http `GET` returns the entire state, but you may want a more extensive/granular set of chain reads.
+In addition, an http `POST` accepts a json-encoded transaction, which you also may want to switch out for something different.
+
+Lastly, you may want to deploy your own [bridge](https://github.com/kinode-dao/chess-bridge).
+Currently, the [sequencer](./sequencer/sequencer/src/lib.rs) is set up to hit a particular bridge on sepolia. This means that you will be able to read new deposits in from that rollup, but you will not be able to post withdrawals (because you do not control the sequencer key!). For development purposes, it shouldn't matter that much, but if you would like to deploy your own bridge, that option is open, and will require some modifications to the [bridge_lib](./sequencer/sequencer/src/bridge_lib.rs) once you have deployed your bridge. In the future, this will be obviated with a more automated setup to deploy your own rollup, but for now this is part of the configuration.
+
+## Prover Extension Guide (TODO)

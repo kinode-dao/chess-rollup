@@ -55,6 +55,9 @@ pub enum ChessTransactions {
 }
 
 /// ChessState and ChessTransactions help to extend the "basic" rollup state
+/// This is the core thing that you need to extend to modify this rollup: either
+/// changing the ChessState, or changing the ChessTransactions, and making sure that
+/// they are pluggable with RollupState.
 pub type ChessRollupState = RollupState<ChessState, ChessTransactions>;
 
 impl Default for ChessRollupState {
@@ -75,6 +78,8 @@ impl Default for ChessRollupState {
     }
 }
 
+/// This is where all of the business logic for the chess rollup lives.
+/// The `execute` function is called by the sequencer to process a single transaction.
 impl ExecutionEngine<ChessTransactions> for ChessRollupState {
     // process a single transaction
     fn execute(&mut self, stx: SignedTransaction<ChessTransactions>) -> anyhow::Result<()> {
