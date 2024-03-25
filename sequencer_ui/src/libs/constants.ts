@@ -41,3 +41,11 @@ export const CHAIN_INFO: { [key: string]: ChainInfo } = {
 
 // URLs
 export const METAMASK_URL = 'https://metamask.io/'
+
+interface ContractMap {
+    [chainId: number]: string
+}
+
+export const BRIDGE_ADDRESS: ContractMap = {
+    [SEPOLIA_CHAIN_ID]: "0xA25489Af7c695DE69eDd19F7A688B2195B363f23",
+}

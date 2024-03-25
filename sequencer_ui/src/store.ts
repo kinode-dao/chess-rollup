@@ -75,11 +75,25 @@ export interface SequencerStore {
   balances: Record<string, number> // TODO string?
   nonces: Record<string, number> // TODO string?
   withdrawals: any, // TODO
+  batches: Batch[], // TODO
   state: {
     pending_games: Record<string, PendingGame>
     games: Record<string, Game>
   }
   set: (partial: SequencerStore | Partial<SequencerStore>) => void
+}
+
+export interface Batch {
+  root: string;
+  token_total: string;
+  num_drops: string;
+  claims: Record<string, Claim>
+}
+
+export interface Claim {
+  amount: string;
+  index: number;
+  proof: string[];
 }
 
 const useSequencerStore = create<SequencerStore>()(
@@ -89,6 +103,7 @@ const useSequencerStore = create<SequencerStore>()(
       balances: {},
       nonces: {},
       withdrawals: [],
+      batches: [],
       state: {
         pending_games: {},
         games: {},

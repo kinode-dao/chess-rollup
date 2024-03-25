@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
 import ROLLUP_ABI from "../abis/bridge.json";
-import { SEPOLIA_CHAIN_ID } from "../libs/constants";
+import { BRIDGE_ADDRESS } from "../libs/constants";
 
 const Bridge = () => {
     let { account, provider, chainId } = useWeb3React();
@@ -13,16 +13,16 @@ const Bridge = () => {
         async (e: FormEvent) => {
             e.preventDefault();
             try {
-                if (!account || !provider) {
+                if (!account || !provider || !chainId) {
                     window.alert('Ethereum wallet is not connected');
                     return;
                 }
-                if (chainId !== SEPOLIA_CHAIN_ID) {
-                    window.alert('Please connect to sepolia');
+                if (!BRIDGE_ADDRESS[chainId]) {
+                    window.alert('Please connect to a supported network');
                     return;
                 }
 
-                const rollup = new ethers.Contract('0xA25489Af7c695DE69eDd19F7A688B2195B363f23', ROLLUP_ABI, provider.getSigner());
+                const rollup = new ethers.Contract(BRIDGE_ADDRESS[chainId], ROLLUP_ABI, provider.getSigner());
                 const receipt = await rollup.deposit({ value: BigNumber.from(amount) });
 
                 console.log('receipt', receipt);
