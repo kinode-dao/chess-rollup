@@ -1,5 +1,6 @@
 use alloy_primitives::{keccak256, Address as AlloyAddress, FixedBytes, Signature, U256};
 use alloy_sol_types::{sol, SolValue};
+use kinode_process_lib::http::IncomingHttpRequest;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -80,6 +81,16 @@ pub enum TransactionData<T> {
 /// ```
 pub trait ExecutionEngine<T> {
     fn execute(&mut self, tx: SignedTransaction<T>) -> anyhow::Result<()>;
+}
+
+/// The RpcApi trait implements all the logic for the RPC API
+/// There is a good reason to separate this from the ExecutionEngine: the EE should be ignorant of
+/// all things related to kinode, http, etc. It should only know how to apply transactions.
+pub trait RpcApi<S, T>
+where
+    S: ExecutionEngine<T>,
+{
+    fn rpc(&mut self, req: &IncomingHttpRequest) -> anyhow::Result<()>;
 }
 
 /// To enable withdrawals, we need to create a Merkle tree of all the pending withdraws.

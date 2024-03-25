@@ -8,16 +8,16 @@ use kinode_process_lib::{
 };
 use serde::{Deserialize, Serialize};
 use sp1_core::SP1Stdin;
-use std::collections::HashMap;
 
 mod bridge_lib;
 use bridge_lib::{get_old_logs, handle_log, subscribe_to_logs};
 mod chess_engine;
-use chess_engine::{ChessRollupState, ChessTransactions};
+use chess_engine::ChessRollupState;
 mod prover_types;
 use prover_types::ProveRequest;
 mod rollup_lib;
 use rollup_lib::*;
+mod rpc;
 
 const ELF: &[u8] = include_bytes!("../../../elf_program/elf/riscv32im-succinct-zkvm-elf");
 
@@ -150,55 +150,8 @@ fn handle_http_request(
         // GETs and POSTs are reads and writes to the chain, respectively
         // essentially, this is our RPC API
         http::HttpServerRequest::Http(ref incoming) => {
-            match incoming.method()?.as_str() {
-                "GET" => {
-                    // We only support one kind of chain READ: getting the entire current state
-                    // TODO abstract this
-                    http::send_response(
-                        http::StatusCode::OK,
-                        Some(HashMap::from([(
-                            String::from("Content-Type"),
-                            String::from("application/json"),
-                        )])),
-                        serde_json::to_vec(&state)?,
-                    );
-                    Ok(())
-                }
-                "POST" => {
-                    let Some(blob) = get_blob() else {
-                        return Ok(http::send_response(
-                            http::StatusCode::BAD_REQUEST,
-                            None,
-                            vec![],
-                        ));
-                    };
-                    // we expect the frontend to send us an entire transaction
-                    let tx = serde_json::from_slice::<SignedTransaction<ChessTransactions>>(
-                        &blob.bytes,
-                    )?;
-
-                    // execute the transaction, which will propagate any errors like a bad signature or bad move
-                    state.execute(tx)?;
-                    save_rollup_state(state);
-                    // send a confirmation to the frontend that the transaction was sequenced
-                    http::send_response(
-                        http::StatusCode::OK,
-                        None,
-                        "todo send tx receipt or error here"
-                            .to_string()
-                            .as_bytes()
-                            .to_vec(),
-                    );
-
-                    Ok(())
-                }
-                // Any other http method will be rejected.
-                _ => Ok(http::send_response(
-                    http::StatusCode::METHOD_NOT_ALLOWED,
-                    None,
-                    vec![],
-                )),
-            }
+            state.rpc(incoming)?;
+            Ok(())
         }
         // this is for connecting to the prover_extension
         http::HttpServerRequest::WebSocketOpen { ref channel_id, .. } => {
