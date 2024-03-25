@@ -294,10 +294,17 @@ impl ExecutionEngine<ChessTransactions> for FullRollupState {
             },
         }
     }
+
+    // logic for saving our state to kinode sequencer
+    // I would not modify this function, but you can if you require special logic
+    // NOTE: normally I would use bincode but serde_json makes manual modification of the state much easier
     fn save(&self) -> anyhow::Result<()> {
         set_state(&serde_json::to_vec(&self).unwrap());
         Ok(())
     }
+
+    // logic for loading our state from kinode sequencer
+    // I would not modify this function, but you can if you require special logic
     fn load() -> Self
     where
         Self: Sized,
@@ -307,8 +314,11 @@ impl ExecutionEngine<ChessTransactions> for FullRollupState {
             None => FullRollupState::default(),
         }
     }
+
+    // logic for handling incoming http requests
     fn rpc(&mut self, req: &http::IncomingHttpRequest) -> anyhow::Result<()> {
         match req.method()?.as_str() {
+            // chain reads
             "GET" => {
                 // For simplicity, we just return the entire state as the only chain READ operation
                 http::send_response(
@@ -321,6 +331,7 @@ impl ExecutionEngine<ChessTransactions> for FullRollupState {
                 );
                 Ok(())
             }
+            // chain writes (handle transactions)
             "POST" => {
                 // get the blob from the request
                 let Some(blob) = get_blob() else {
@@ -341,7 +352,7 @@ impl ExecutionEngine<ChessTransactions> for FullRollupState {
                 http::send_response(
                     http::StatusCode::OK,
                     None,
-                    "todo send tx receipt or error here"
+                    "send tx receipt or error here" // TODO better receipt
                         .to_string()
                         .as_bytes()
                         .to_vec(),
@@ -349,7 +360,8 @@ impl ExecutionEngine<ChessTransactions> for FullRollupState {
 
                 Ok(())
             }
-            // Any other http method will be rejected.
+            // Any other http method will be rejected
+            // feel free to add more methods if you need them
             _ => Ok(http::send_response(
                 http::StatusCode::METHOD_NOT_ALLOWED,
                 None,
