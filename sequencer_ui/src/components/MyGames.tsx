@@ -100,7 +100,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
             className="flex flex-col items-center"
         >
             <h4 className="m-2">Active Games</h4>
-            <div className="flex flex-col overflow-scroll">
+            <div className="flex flex-col overflow-auto">
                 {Object.keys(state.games).map((gameId, i) => {
                     const { status, turns, board, white, black, wager } = state.games[gameId]; // accepted
                     const whoMovesNext = turns % 2 == 0 ? white.toLowerCase() : black.toLowerCase();

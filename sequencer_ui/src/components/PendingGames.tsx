@@ -61,7 +61,7 @@ const MyGames = ({ baseUrl }: MyGamesProps) => {
         <div
             className="flex flex-col items-center"
         >
-            <div className="flex flex-col overflow-scroll">
+            <div className="flex flex-col overflow-auto">
                 {Object.keys(pending_games).map((gameId, i) => {
                     const { white, black, wager } = pending_games[gameId]; // accepted
                     if (account?.toLowerCase() == black.toLowerCase()) {

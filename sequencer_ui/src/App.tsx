@@ -34,9 +34,8 @@ function App() {
 
   return (
     <>
-
       <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-3">
+        <div className="col-span-3 flex place-items-center place-content-center">
           <NavBar />
         </div>
         <div className="col-span-1">

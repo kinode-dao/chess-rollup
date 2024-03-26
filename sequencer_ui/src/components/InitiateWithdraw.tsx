@@ -60,14 +60,15 @@ const InitiateWithdraw = ({ baseUrl }: WithdrawProps) => {
     return (
         <div>
             <h4 className="m-2">Initiate Withdraw of Tokens from Rollup</h4>
-            <div className="flex flex-col overflow-scroll">
-                <form onSubmit={initiateWithdraw}>
+            <div className="flex flex-col overflow-auto">
+                <form onSubmit={initiateWithdraw} className="flex place-items-center self-stretch">
                     <input
                         type="text"
+                        className="grow"
                         value={amount}
                         onChange={(e) => setAmount(Number(e.target.value))}
                     />
-                    <button type="submit">Initiate Withdraw</button>
+                    <button type="submit" className="w-1/2 self-stretch">Initiate Withdraw</button>
                 </form>
             </div>
         </div>

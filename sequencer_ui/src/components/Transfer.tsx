@@ -67,15 +67,24 @@ const Transfer = ({ baseUrl }: TransferProps) => {
     return (
         <div>
             <h4 className="m-2">Transfer</h4>
-            <div className="flex flex-col overflow-scroll">
-                <form onSubmit={transfer}>
-                    <input type="text" placeholder="to" value={transferTo} onChange={(e) => setTransferTo(e.target.value)} />
-                    <input
-                        type="text"
-                        value={transferAmount}
-                        onChange={(e) => setTransferAmount(Number(e.target.value))}
-                    />
-                    <button type="submit">Transfer</button>
+            <div className="flex flex-col overflow-auto">
+                <form onSubmit={transfer} className="flex flex-col">
+                    <div className="flex">
+                        <input
+                            type="text"
+                            placeholder="to"
+                            value={transferTo}
+                            onChange={(e) => setTransferTo(e.target.value)}
+                            className="w-3/4"
+                        />
+                        <input
+                            type="text"
+                            value={transferAmount}
+                            className="w-1/4"
+                            onChange={(e) => setTransferAmount(Number(e.target.value))}
+                        />
+                    </div>
+                    <button type="submit" className="mt-2">Transfer</button>
                 </form>
             </div>
         </div>
