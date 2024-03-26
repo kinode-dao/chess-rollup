@@ -15,7 +15,7 @@ sol! {
 pub fn subscribe_to_logs(eth_provider: &eth::Provider, from_block: U256) {
     let filter = eth::Filter::new()
         .address(
-            "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
+            "0x24E063a827CB134315aC57A380446c8bF5418555"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
@@ -43,7 +43,7 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider, from_block: U256) {
 pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut FullRollupState) {
     let filter = eth::Filter::new()
         .address(
-            "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
+            "0x24E063a827CB134315aC57A380446c8bF5418555"
                 .parse::<eth::Address>()
                 .unwrap(),
         )

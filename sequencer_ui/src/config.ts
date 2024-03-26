@@ -10,6 +10,7 @@ interface ExampleConfig {
     rpc: {
         sepolia: string
         mainnet: string
+        optimism: string
     }
 }
 
@@ -19,5 +20,6 @@ export const CurrentConfig: ExampleConfig = {
     rpc: {
         sepolia: 'https://sepolia.infura.io/v3/',
         mainnet: 'https://mainnet.infura.io/v3/',
+        optimism: 'https://mainnet.optimism.io/v1/',
     },
 }

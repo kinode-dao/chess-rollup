@@ -57,7 +57,7 @@ fn initialize(our: Address) {
     let mut state = FullRollupState::load();
 
     // create a new eth provider to read logs from chain (deposits and state root updates)
-    let eth_provider = eth::Provider::new(11155111, 5);
+    let eth_provider = eth::Provider::new(10, 5);
 
     // index all old deposits
     get_old_logs(&eth_provider, &mut state);

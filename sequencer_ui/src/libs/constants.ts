@@ -2,6 +2,7 @@ import { Chain, CurrentConfig } from '../config'
 
 // Chains
 export const MAINNET_CHAIN_ID = 1
+export const OPTIMISM_CHAIN_ID = 10
 export const SEPOLIA_CHAIN_ID = 11155111
 
 export const INPUT_CHAIN_ID = CurrentConfig.chain === Chain.SEPOLIA ? SEPOLIA_CHAIN_ID : MAINNET_CHAIN_ID
@@ -11,6 +12,7 @@ export const INPUT_CHAIN_URL =
 export const CHAIN_TO_URL_MAP = {
     [SEPOLIA_CHAIN_ID]: CurrentConfig.rpc.sepolia,
     [MAINNET_CHAIN_ID]: CurrentConfig.rpc.mainnet,
+    [OPTIMISM_CHAIN_ID]: CurrentConfig.rpc.optimism,
 }
 
 type ChainInfo = {
@@ -37,6 +39,12 @@ export const CHAIN_INFO: { [key: string]: ChainInfo } = {
         nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
         rpcUrl: CurrentConfig.rpc.sepolia,
     },
+    [OPTIMISM_CHAIN_ID]: {
+        explorer: '',
+        label: 'Optimism',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        rpcUrl: CurrentConfig.rpc.optimism,
+    },
 }
 
 // URLs
@@ -47,5 +55,6 @@ interface ContractMap {
 }
 
 export const BRIDGE_ADDRESS: ContractMap = {
-    [SEPOLIA_CHAIN_ID]: "0xA25489Af7c695DE69eDd19F7A688B2195B363f23",
+    // [SEPOLIA_CHAIN_ID]: "0xA25489Af7c695DE69eDd19F7A688B2195B363f23",
+    [OPTIMISM_CHAIN_ID]: "0x24E063a827CB134315aC57A380446c8bF5418555",
 }
