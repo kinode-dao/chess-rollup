@@ -1552,6 +1552,7 @@ dependencies = [
 [[package]]
 name = "kinode_lib"
 version = "0.6.0"
+source = "git+https://github.com/kinode-dao/kinode?tag=v0.6.0#fccff76023f2f2a029e54ad06961a628e62ba22d"
 dependencies = [
  "lib",
 ]
@@ -1571,6 +1572,7 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 [[package]]
 name = "lib"
 version = "0.6.0"
+source = "git+https://github.com/kinode-dao/kinode?tag=v0.6.0#fccff76023f2f2a029e54ad06961a628e62ba22d"
 dependencies = [
  "alloy-rpc-types",
  "lazy_static",
