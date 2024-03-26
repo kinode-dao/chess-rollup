@@ -2,7 +2,7 @@ import { useState, useCallback, FormEvent } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import ROLLUP_ABI from "../abis/bridge.json";
+import ROLLUP_ABI from "../abis/Bridge.json";
 import { BRIDGE_ADDRESS } from "../libs/constants";
 
 const Bridge = () => {
@@ -37,14 +37,15 @@ const Bridge = () => {
     return (
         <div>
             <h4 className="m-2">Bridge ETH (value in WEI) from Sepolia</h4>
-            <div className="flex flex-col overflow-scroll">
-                <form onSubmit={bridge}>
+            <div className="flex flex-col overflow-auto">
+                <form onSubmit={bridge} className="flex place-items-center self-stretch">
                     <input
                         type="text"
+                        className="grow self-stretch"
                         value={amount}
                         onChange={(e) => setAmount(Number(e.target.value))}
                     />
-                    <button type="submit">Bridge</button>
+                    <button type="submit" className="w-1/2 self-stretch">Bridge</button>
                 </form>
             </div>
         </div>

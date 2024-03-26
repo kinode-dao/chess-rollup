@@ -11,33 +11,34 @@ const NavBar = () => {
     const [connectionType, setConnectionType] = useState<ConnectionType | null>(null)
 
     return (
-        <nav>
-            <div className="max-w-6xl mx-auto px-4">
-                <div className="flex justify-between">
-                    <div className="flex space-x-4">
+        <nav className="flex place-items-center place-content-center grow mx-10">
+            <div className="flex justify-between grow">
+                <div className="py-5 px-3 grow flex place-items-center">
+                    <h1 className="display">
+                        Kinode
+                        <span className="text-xs self-end">&reg;</span>
+                    </h1>
+                    <h1 className="mx-auto">
+                        ZK Chess
+                    </h1>
+                </div>
+                <div className="py-5 px-3">
+                    <code>{account}</code>
+                </div>
+                {
+                    account && (
                         <div className="py-5 px-3">
-                            Kinode ZK Chess
+                            <code>{balances[account.toLowerCase()] && `${BigNumber.from(balances[account.toLowerCase()])} WEI`}</code>
                         </div>
-                        <div className="py-5 px-3">
-                            <code>{account}</code>
-                        </div>
-                        {
-                            account && (
-                                <div className="py-5 px-3">
-                                    <code>{balances[account.toLowerCase()] && `${BigNumber.from(balances[account.toLowerCase()])} WEI`}</code>
-                                </div>
-                            )
-                        }
-                        <div className="py-5 px-3">
-                            <ConnectionOptions
-                                activeConnectionType={connectionType}
-                                isConnectionActive={isActive}
-                                onActivate={setConnectionType}
-                                onDeactivate={setConnectionType}
-                            />
-                        </div>
-                    </div>
-
+                    )
+                }
+                <div className="py-5 px-3 flex items-center">
+                    <ConnectionOptions
+                        activeConnectionType={connectionType}
+                        isConnectionActive={isActive}
+                        onActivate={setConnectionType}
+                        onDeactivate={setConnectionType}
+                    />
                 </div>
             </div>
         </nav>

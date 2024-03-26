@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
-import ROLLUP_ABI from "../abis/bridge.json";
+import ROLLUP_ABI from "../abis/Bridge.json";
 import { BRIDGE_ADDRESS } from "../libs/constants";
 import useSequencerStore, { Claim } from "../store";
 

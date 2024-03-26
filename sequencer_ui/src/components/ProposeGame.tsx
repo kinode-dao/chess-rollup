@@ -67,15 +67,24 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
     return (
         <div>
             <h4 className="m-2">Propose Game</h4>
-            <div className="flex flex-col overflow-scroll">
-                <form onSubmit={proposeGame}>
-                    <input type="text" placeholder="opponent" value={black} onChange={(e) => setBlack(e.target.value)} />
-                    <input
-                        type="text"
-                        value={wager}
-                        onChange={(e) => setWager(Number(e.target.value))}
-                    />
-                    <button type="submit">Propose Game</button>
+            <div className="flex flex-col overflow-auto">
+                <form onSubmit={proposeGame} className="flex flex-col">
+                    <div className="flex">
+                        <input
+                            type="text"
+                            placeholder="opponent"
+                            value={black}
+                            onChange={(e) => setBlack(e.target.value)}
+                            className="w-3/4"
+                        />
+                        <input
+                            type="text"
+                            value={wager}
+                            onChange={(e) => setWager(Number(e.target.value))}
+                            className="w-1/4"
+                        />
+                    </div>
+                    <button type="submit" className="mt-2">Propose Game</button>
                 </form>
             </div>
         </div>
