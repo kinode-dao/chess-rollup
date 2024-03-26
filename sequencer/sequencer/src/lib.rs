@@ -45,7 +45,7 @@ fn initialize(our: Address) {
 
     // Serve the index.html and other UI files found in pkg/ui at the root path.
     // authenticated=true, local_only=false
-    http::serve_ui(&our, "ui", true, false, vec!["/"]).unwrap();
+    http::serve_ui(&our, "ui", false, false, vec!["/"]).unwrap();
     // Allow HTTP requests to be made to /rpc; they will be handled dynamically.
     // The handling logic for this is the RPC API for reads and writes to the rollup.
     http::bind_http_path("/rpc", true, false).unwrap();
