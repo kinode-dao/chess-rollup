@@ -1,6 +1,6 @@
 # ZK Rollup Template
 ## Overview
-This repo contains 2 main components:
+This repo contains 4 main components:
 - `elf_program`: where the core logic of your rollup execution engine will live, along with its types
 - `sequencer`: which contains "everything else":
   - RPC API
@@ -8,13 +8,13 @@ This repo contains 2 main components:
   - serving the web UI for your rollup
   - proving the state transition was valid (via the [prover extension](./prover_extension/))
   - (SOON) replicating data to a data availability comittee (or EigenDA/Celestia/L1, TBD)
+- `sequencer_ui`: the UI for the sequencer app (in this case a chess app)
+- `prover_extension`: an optional runtime extension for zk-proving the state transition of the app (this will become more relevant once the EVM verifier is released and connected to the bridge)
 
 ## Developer Quick Start
 (assuming your kinode is running on port 8080)
 ```bash
-cd elf_program
-cargo prove build
-cd ../sequencer
+cd ./sequencer
 kit bs
 # (optional) if you want to use the prover
 cd ../prover_extension
@@ -34,6 +34,7 @@ Your `FullRollupState` must implement the `ExecutionEngine` trait with the follo
 - `save`: saving the state to kinode (most projects can leave this as is)
 - `rpc`: for handling chain reads/writes over http (you may want to modify this slightly, but it is fine to leave as is)
 - `execute`: the most important part, which will execute a single transaction
+After editing `ExecutionEngine` `impl` to fit your new application, you can simply build and install the app on your kinode with `kit bs`.
 
 Next, you will want to modify the [sequencer_ui](./sequencer_ui/) so that it matches the app you are trying to create.
 Use vite to make development easier.
