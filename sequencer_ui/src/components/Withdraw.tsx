@@ -17,7 +17,7 @@ const Bridge = () => {
                     return;
                 }
                 if (!BRIDGE_ADDRESS[chainId]) {
-                    window.alert('Please connect to a supported network');
+                    window.alert('Please connect to Optimism mainnet');
                     return;
                 }
 
