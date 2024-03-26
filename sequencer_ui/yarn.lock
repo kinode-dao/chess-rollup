@@ -1376,9 +1376,9 @@ chalk@^4.0.0:
     supports-color "^7.1.0"
 
 chess.js@^1.0.0-beta.6:
-  version "1.0.0-beta.7"
-  resolved "https://registry.npmjs.org/chess.js/-/chess.js-1.0.0-beta.7.tgz"
-  integrity sha512-2qG/f3M9Lil/hBey2uoJy9zhNr1BWIXZngRUJFt7j1QqS5Y5Ywq8Rd3l7ZBCbyJjhsLhxTcVhv6xy7BfjC19Dw==
+  version "1.0.0-beta.8"
+  resolved "https://registry.npmjs.org/chess.js/-/chess.js-1.0.0-beta.8.tgz"
+  integrity sha512-UngzUMXmexcQaQA/UEJuJj5vatEy34awYMD5YMOp/FW3HM7lqspp7ymYs5JAmquDq0WROtURRfSffoa/vrCCyw==
 
 chokidar@^3.5.3:
   version "3.5.3"

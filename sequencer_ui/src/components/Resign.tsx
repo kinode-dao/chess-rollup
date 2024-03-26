@@ -1,22 +1,19 @@
-import { useState, useCallback, FormEvent } from "react";
-import { ethers } from "ethers";
+import { useCallback } from "react";
+import { ethers, BigNumber } from "ethers";
 import { useWeb3React } from "@web3-react/core";
-import { BigNumber } from 'ethers'
 import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 
-interface ProposeGameProps {
+interface ResignProps {
     baseUrl: string;
+    gameId: string;
 }
 
-const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
+const Resign = ({ baseUrl, gameId }: ResignProps) => {
     let { account, provider } = useWeb3React();
     const { nonces } = useSequencerStore();
-    const [black, setBlack] = useState('0x6de4ff647646d9faaf1e40dcddf6ad231f696af6');
-    const [wager, setWager] = useState(4);
 
-    const proposeGame = useCallback(
-        async (e: FormEvent) => {
-            e.preventDefault();
+    const resign = useCallback(
+        async () => {
             try {
                 if (!account || !provider) {
                     window.alert('Ethereum wallet is not connected');
@@ -25,11 +22,7 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
                 let tx: Transaction = {
                     data: {
                         Extension: {
-                            ProposeGame: {
-                                white: account.toLowerCase(),
-                                black: black.toLowerCase(),
-                                wager: BigNumber.from(wager).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
-                            },
+                            Resign: gameId,
                         }
                     },
                     nonce: nonces[account.toLowerCase()] ?
@@ -60,26 +53,15 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
                 console.error(err);
             }
         },
-        [account, provider, black, wager]
+        [account, provider]
     );
 
 
     return (
-        <div>
-            <h4 className="m-2">Propose Game</h4>
-            <div className="flex flex-col overflow-scroll">
-                <form onSubmit={proposeGame}>
-                    <input type="text" placeholder="opponent" value={black} onChange={(e) => setBlack(e.target.value)} />
-                    <input
-                        type="text"
-                        value={wager}
-                        onChange={(e) => setWager(Number(e.target.value))}
-                    />
-                    <button type="submit">Propose Game</button>
-                </form>
-            </div>
-        </div>
+        <button onClick={resign}>
+            Resign
+        </button>
     );
 };
 
-export default ProposeGame;
+export default Resign;

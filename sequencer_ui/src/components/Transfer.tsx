@@ -2,7 +2,7 @@ import { useState, useCallback, FormEvent } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import { Transaction, WrappedTransaction } from "../store";
+import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 
 interface TransferProps {
     baseUrl: string;
@@ -10,6 +10,7 @@ interface TransferProps {
 
 const Transfer = ({ baseUrl }: TransferProps) => {
     let { account, provider } = useWeb3React();
+    const { nonces } = useSequencerStore();
     const [transferTo, setTransferTo] = useState('0x6de4ff647646d9faaf1e40dcddf6ad231f696af6');
     const [transferAmount, setTransferAmount] = useState(4);
 
@@ -25,22 +26,27 @@ const Transfer = ({ baseUrl }: TransferProps) => {
 
             try {
                 let tx: Transaction = {
-                    Transfer: {
-                        from: account.toLowerCase(),
-                        to: transferTo.toLowerCase(),
-                        amount: BigNumber.from(transferAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+                    data: {
+                        Transfer: {
+                            from: account.toLowerCase(),
+                            to: transferTo.toLowerCase(),
+                            amount: BigNumber.from(transferAmount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
+                        },
                     },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
                 }
 
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));
                 const { v, r, s } = ethers.utils.splitSignature(signature);
 
-                let wtx: WrappedTransaction = {
+                let wtx: SignedTransaction = {
                     pub_key: account,
                     sig: {
                         r, s, v
                     },
-                    data: tx
+                    tx
                 };
 
                 const receipt = await fetch(`${baseUrl}/rpc`, {

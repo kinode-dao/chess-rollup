@@ -1,8 +1,8 @@
 import { Chain, CurrentConfig } from '../config'
 
 // Chains
-const MAINNET_CHAIN_ID = 1
-const SEPOLIA_CHAIN_ID = 11155111
+export const MAINNET_CHAIN_ID = 1
+export const SEPOLIA_CHAIN_ID = 11155111
 
 export const INPUT_CHAIN_ID = CurrentConfig.chain === Chain.SEPOLIA ? SEPOLIA_CHAIN_ID : MAINNET_CHAIN_ID
 export const INPUT_CHAIN_URL =
@@ -41,3 +41,11 @@ export const CHAIN_INFO: { [key: string]: ChainInfo } = {
 
 // URLs
 export const METAMASK_URL = 'https://metamask.io/'
+
+interface ContractMap {
+    [chainId: number]: string
+}
+
+export const BRIDGE_ADDRESS: ContractMap = {
+    [SEPOLIA_CHAIN_ID]: "0xA25489Af7c695DE69eDd19F7A688B2195B363f23",
+}

@@ -1,64 +1,47 @@
-# ZK Chess
+# ZK Rollup Template
 ## Overview
-This repo contains the prototype for a zk app-chain that lets any wallet challenge any other wallet to a game of chess.
-For a quick look at the data structures we use to define this chain, what transactions look like, and how we update the state, see [tx.rs](./elf_program/src/tx.rs). This lives within the [elf program](./elf_program/) which is the compiled SP1 program we can use to generate proofs.
+This repo contains 2 main components:
+- `elf_program`: where the core logic of your rollup execution engine will live, along with its types
+- `sequencer`: which contains "everything else":
+  - RPC API
+  - bridge interactions (deposits/withdrawals)
+  - serving the web UI for your rollup
+  - proving the state transition was valid (via the [prover extension](./prover_extension/))
+  - (SOON) replicating data to a data availability comittee (or EigenDA/Celestia/L1, TBD)
 
-Of course, compiling a program to be zk provable is far from launching an app-chain, hence the [sequencer](./sequencer) kinode package.
-This kinode package handles "everything else" - handling new transactions, letting clients read the state of the chain via http, handling bridging, serving [a UI](./sequencer_ui/), etc.
-Under the hood, the core event-loop is the exact same logic as what is in [tx.rs](./elf_program/src/tx.rs), which lets us prove later on that we executed this appchain properly.
-
-When we finally want that proof, we hook the sequencer up to a [prover extension](./prover_extension/) which will take the list of transactions and the event-loop program, and produce a proof that the sequencer calculated the new state correctly.
-
-## Components
-
-- `elf_program`: This is the event loop of our chain that we need to prove using SP1.
-
-- `prover_extension`: Runtime extension to get proofs of sp1 program
-
-- `sequencer`: 
-This keeps track of state (tx history, and chain state), and uses the same code in `elf_program` to run its event loop.
-  - `m our@sequencer:rollup:goldfinger.kino "Prove"` to prove all the transactions using (make sure you also have the `prover_extension` setup!)
-
-- `sequencer_ui`: UI for the sequencer
-- `dac`: work in progress for data availability using kinode multisigs
-
-## Setup
-First, build the `elf_program`, which we use in the sequencer to zk prove the chain:
+## Developer Quick Start
+(assuming your kinode is running on port 8080)
 ```bash
 cd elf_program
 cargo prove build
-```
-Next, make sure you have a kinode running (use `kit f` or run a local node), build and install the sequencer
-```bash
 cd ../sequencer
 kit bs
-```
-Next, if you navigate to `<YOUR_NODE_URL>/sequencer:rollup:goldfinger.os`, you can start sending transactions to the local chain!
-
-If you want to prove your transactions, build and run the `prover_extension`
-```bash
+# (optional) if you want to use the prover
 cd ../prover_extension
 cargo run --release -- --port 8080
 ```
-You should see
-```bash
-rollup:goldfinger.os: sequencer: connected to prover_extension
-```
-in your kinode's terminal.
+You can then go to `http://localhost:8080/sequencer:rollup:goldfinger.os` to see the UI and play around with sending transactions to your sequencer (make sure you have metamask installed in your browser!)
 
-Finally, to prove your transaction history, simply run
-```bash
-m our@sequencer:rollup:goldfinger.kino "Prove"
-```
-in your kinode's terminal, and the proof.json file will be in `<HOME_DIRECTORY>/vfs/rollup:goldfinger.os/proofs/proof.json`.
+## Guide to Modifying the Rollup
+This chess example was written in a way to make it very easy to modify.
+Most pieces can stay completely fixed with no changes.
 
-## Work in Progress Components
-### `dac`
-The data availability comittee (DAC) client that hooks into the sequencer.
-Other nodes can assist the core sequencer in providing data availability.
-The idea is that instead of posting all of our data to L1 blobs, which is expensive, we can delegate that to a multisig to get much more data throughput.
-### `disperser` process
-This is responsible for "dispersing" the batch data to the data availability members.
-Before any batch is posted to update the L1 rollup state, the disperser sends all the state to the DAC members who sign off that they have seen it.
-This is then used to verify that the data was made available, reducing the changes of a withholding attack.
-This interacts with `client:dac:goldfinger.os` which stores and signs off on the DAC data.
+The first thing you will need to modify is the [execution engine](./elf_program/src/engine.rs).
+This is where we define our state, transaction types, and insert our business logic.
+There are comments peppered throughout that file to help out.
+Your `FullRollupState` must implement the `ExecutionEngine` trait with the following methods:
+- `load`: loading the state from kinode (most projects can leave this as is)
+- `save`: saving the state to kinode (most projects can leave this as is)
+- `rpc`: for handling chain reads/writes over http (you may want to modify this slightly, but it is fine to leave as is)
+- `execute`: the most important part, which will execute a single transaction
+
+Next, you will want to modify the [sequencer_ui](./sequencer_ui/) so that it matches the app you are trying to create.
+Use vite to make development easier.
+
+Lastly, you may want to deploy your own [bridge](https://github.com/kinode-dao/chess-bridge).
+Currently, the [sequencer](./sequencer/sequencer/src/lib.rs) is set up to hit a particular bridge on sepolia.
+This means that you will be able to read new deposits in from that rollup, but you will not be able to post withdrawals (because you do not control the sequencer key!).
+For development purposes, it shouldn't matter that much, but if you would like to deploy your own bridge, that option is open, and will require some modifications to the [bridge_lib](./sequencer/sequencer/src/bridge_lib.rs) once you have deployed your bridge.
+In the future, this will be obviated with a more automated setup to deploy your own rollup, but for now this is part of the configuration.
+
+## Prover Extension Guide (TODO)

@@ -14,13 +14,13 @@ export interface Game {
   white: string;
   black: string;
   wager: string;
-  // could add move history?
+  status: string,
 }
 
-export interface WrappedTransaction {
+export interface SignedTransaction {
   pub_key: string; // Converted camelCase for TypeScript conventions
   sig: Sig;
-  data: Transaction; // Still a hex string, but consider using ArrayBuffer or similar for binary data handling in JS/TS
+  tx: Transaction; // Still a hex string, but consider using ArrayBuffer or similar for binary data handling in JS/TS
   // Additional fields like nonces, value, gas, gasPrice, gasLimit, etc., can be added as needed.
 }
 
@@ -30,14 +30,23 @@ export type Sig = {
   v: number;
 };
 
+export type Transaction = {
+  data: TransactionData;
+  nonce: string;
+
+}
+
 // For the `Transaction` enum, TypeScript uses a combination of types and interfaces to achieve similar functionality.
-export type Transaction =
+export type TransactionData =
   | {
     Transfer: {
       from: string;
       to: string;
       amount: string; // BigNumber
     }
+  }
+  | {
+    WithdrawTokens: string; // BigNumber
   }
   | {
     Extension: | {
@@ -57,14 +66,16 @@ export type Transaction =
       }
     }
     | {
-      ClaimWin: string;
+      Resign: string;
     }
   }
 
 export interface SequencerStore {
-  sequenced: WrappedTransaction[]
-  balances: Record<string, number>
+  sequenced: SignedTransaction[]
+  balances: Record<string, number> // TODO string?
+  nonces: Record<string, number> // TODO string?
   withdrawals: any, // TODO
+  batches: Batch[], // TODO
   state: {
     pending_games: Record<string, PendingGame>
     games: Record<string, Game>
@@ -72,12 +83,27 @@ export interface SequencerStore {
   set: (partial: SequencerStore | Partial<SequencerStore>) => void
 }
 
+export interface Batch {
+  root: string;
+  token_total: string;
+  num_drops: string;
+  claims: Record<string, Claim>
+}
+
+export interface Claim {
+  amount: string;
+  index: number;
+  proof: string[];
+}
+
 const useSequencerStore = create<SequencerStore>()(
   persist(
     (set) => ({  // get
       sequenced: [],
       balances: {},
+      nonces: {},
       withdrawals: [],
+      batches: [],
       state: {
         pending_games: {},
         games: {},

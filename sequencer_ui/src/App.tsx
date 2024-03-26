@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import useSequencerStore from "./store";
 
+import Bridge from "./components/Bridge";
+import InitiateWithdraw from "./components/InitiateWithdraw";
+import Withdraw from "./components/Withdraw";
 import NavBar from "./components/Navbar";
 import ProposeGame from "./components/ProposeGame";
 import Transfer from "./components/Transfer";
@@ -37,6 +40,15 @@ function App() {
           <NavBar />
         </div>
         <div className="col-span-1">
+          <div className="py-4 px-2">
+            <Bridge />
+          </div>
+          <div className="py-4 px-2">
+            <InitiateWithdraw baseUrl={BASE_URL} />
+          </div>
+          <div className="py-4 px-2">
+            <Withdraw />
+          </div>
           <div className="py-4 px-2">
             <Transfer baseUrl={BASE_URL} />
           </div>

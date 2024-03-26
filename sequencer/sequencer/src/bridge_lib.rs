@@ -1,28 +1,29 @@
-use crate::{ChessRollupState, ExecutionEngine, RollupState, TransactionData, WrappedTransaction};
-use alloy_primitives::{address, Signature, U256};
+use crate::{
+    BaseRollupState, ExecutionEngine, FullRollupState, SignedTransaction, Transaction,
+    TransactionData,
+};
+use alloy_primitives::{Signature, U256};
 use alloy_sol_types::{sol, SolEvent};
 use kinode_process_lib::eth;
 use kinode_process_lib::println;
 
 sol! {
-    event DepositMade(uint256 town, address tokenContract, uint256 tokenId,
-        address uqbarDest, uint256 amount, uint256 blockNumber, bytes32 prevDepositRoot
-    );
+    event Deposit(address sender, uint256 amount);
+    event BatchPosted(uint256 withdrawRootIndex, bytes32 withdrawRoot);
 }
 
-/// TODO this needs to include a town_id parameter so that you can filter by *just*
-/// the deposits to the rollup you care about
-pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
+pub fn subscribe_to_logs(eth_provider: &eth::Provider, from_block: U256) {
     let filter = eth::Filter::new()
         .address(
-            "0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b"
+            "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .from_block(5436837)
+        .from_block(from_block.to::<u64>() + 1)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
-            "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
+            "Deposit(address,uint256)",
+            "BatchPosted(uint256,bytes32)",
         ]);
 
     loop {
@@ -38,19 +39,19 @@ pub fn subscribe_to_logs(eth_provider: &eth::Provider) {
     println!("subscribed to logs successfully");
 }
 
-/// TODO this needs to include a town_id
 /// TODO this needs to include a from_block parameter because we don't want to reprocess
-pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) {
+pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut FullRollupState) {
     let filter = eth::Filter::new()
         .address(
-            "0x8B2FBB3f09123e478b55209Ec533f56D6ee83b8b"
+            "0xA25489Af7c695DE69eDd19F7A688B2195B363f23"
                 .parse::<eth::Address>()
                 .unwrap(),
         )
-        .from_block(5436837)
+        .from_block(state.l1_block.to::<u64>() + 1)
         .to_block(eth::BlockNumberOrTag::Latest)
         .events(vec![
-            "DepositMade(uint256,address,uint256,address,uint256,uint256,bytes32)",
+            "Deposit(address,uint256)",
+            "BatchPosted(uint256,bytes32)",
         ]);
     loop {
         match eth_provider.get_logs(&filter) {
@@ -72,37 +73,41 @@ pub fn get_old_logs(eth_provider: &eth::Provider, state: &mut ChessRollupState) 
     }
 }
 
-pub fn handle_log<S, T>(state: &mut RollupState<S, T>, log: &eth::Log) -> anyhow::Result<()>
+pub fn handle_log<S, T>(state: &mut BaseRollupState<S, T>, log: &eth::Log) -> anyhow::Result<()>
 where
-    RollupState<S, T>: ExecutionEngine<T>,
+    BaseRollupState<S, T>: ExecutionEngine<T>,
 {
     match log.topics[0] {
-        DepositMade::SIGNATURE_HASH => {
+        Deposit::SIGNATURE_HASH => {
             println!("deposit event");
-            // let event = DepositMade::from_log(&log)?;
-            let deposit = DepositMade::abi_decode_data(&log.data, true).unwrap();
-            let rollup_id = deposit.0;
-            let token_contract = deposit.1;
-            let token_id = deposit.2;
-            let uqbar_dest = deposit.3;
-            let amount = deposit.4;
-            let _block_number = deposit.5;
-            let _prev_deposit_root = deposit.6;
-            if rollup_id != U256::ZERO {
-                return Err(anyhow::anyhow!("not handling rollup deposits"));
-            }
-            if token_contract != address!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
-                return Err(anyhow::anyhow!("only handling ETH deposits"));
-            }
-            if token_id != U256::ZERO {
-                return Err(anyhow::anyhow!("not handling NFT deposits"));
-            }
+            let deposit = Deposit::abi_decode_data(&log.data, true).unwrap();
+            let sender = deposit.0;
+            let amount = deposit.1;
 
-            state.execute(WrappedTransaction {
-                pub_key: uqbar_dest,
-                sig: Signature::test_signature(),
-                data: TransactionData::BridgeTokens(amount),
+            state.execute(SignedTransaction {
+                pub_key: sender,
+                sig: Signature::test_signature(), // NOTE: deposit txs are unsigned (TODO should be a null sig)
+                tx: Transaction {
+                    nonce: U256::ZERO, // NOTE: this doesn't need to be a "real" nonce since deposits are ex-nihilo
+                    data: TransactionData::BridgeTokens {
+                        amount,
+                        block: log.block_number.unwrap(),
+                    },
+                },
             })?;
+        }
+        BatchPosted::SIGNATURE_HASH => {
+            let batch = BatchPosted::abi_decode_data(&log.data, true).unwrap();
+            let index: usize = batch.0.to::<usize>();
+            let root = batch.1;
+
+            if state.batches.len() > index && state.batches[index].root == root {
+                state.batches[index].verified = true;
+                return Ok(());
+            } else {
+                // If this ever happens, it means the sequencer is in an inconsistent state with the chain
+                println!("sequencer: critical error, state out of sync with chain");
+            }
         }
         _ => {
             return Err(anyhow::anyhow!("unknown event"));

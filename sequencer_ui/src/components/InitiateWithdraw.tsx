@@ -4,17 +4,16 @@ import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
 import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 
-interface ProposeGameProps {
+interface WithdrawProps {
     baseUrl: string;
 }
 
-const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
+const InitiateWithdraw = ({ baseUrl }: WithdrawProps) => {
     let { account, provider } = useWeb3React();
+    const [amount, setAmount] = useState(0);
     const { nonces } = useSequencerStore();
-    const [black, setBlack] = useState('0x6de4ff647646d9faaf1e40dcddf6ad231f696af6');
-    const [wager, setWager] = useState(4);
 
-    const proposeGame = useCallback(
+    const initiateWithdraw = useCallback(
         async (e: FormEvent) => {
             e.preventDefault();
             try {
@@ -24,13 +23,7 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
                 }
                 let tx: Transaction = {
                     data: {
-                        Extension: {
-                            ProposeGame: {
-                                white: account.toLowerCase(),
-                                black: black.toLowerCase(),
-                                wager: BigNumber.from(wager).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
-                            },
-                        }
+                        WithdrawTokens: BigNumber.from(amount).toHexString().replace(/^0x0+/, '0x'), // for some reason there's a leading zero...really annoying!
                     },
                     nonce: nonces[account.toLowerCase()] ?
                         BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
@@ -60,26 +53,25 @@ const ProposeGame = ({ baseUrl }: ProposeGameProps) => {
                 console.error(err);
             }
         },
-        [account, provider, black, wager]
+        [account, provider, amount]
     );
 
 
     return (
         <div>
-            <h4 className="m-2">Propose Game</h4>
+            <h4 className="m-2">Initiate Withdraw of Tokens from Rollup</h4>
             <div className="flex flex-col overflow-scroll">
-                <form onSubmit={proposeGame}>
-                    <input type="text" placeholder="opponent" value={black} onChange={(e) => setBlack(e.target.value)} />
+                <form onSubmit={initiateWithdraw}>
                     <input
                         type="text"
-                        value={wager}
-                        onChange={(e) => setWager(Number(e.target.value))}
+                        value={amount}
+                        onChange={(e) => setAmount(Number(e.target.value))}
                     />
-                    <button type="submit">Propose Game</button>
+                    <button type="submit">Initiate Withdraw</button>
                 </form>
             </div>
         </div>
     );
 };
 
-export default ProposeGame;
+export default InitiateWithdraw;

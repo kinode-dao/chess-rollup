@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3React } from "@web3-react/core";
 import { BigNumber } from 'ethers'
-import useSequencerStore, { Transaction, WrappedTransaction } from "../store";
+import useSequencerStore, { Transaction, SignedTransaction } from "../store";
 
 interface MyGamesProps {
     baseUrl: string;
@@ -10,30 +10,36 @@ interface MyGamesProps {
 
 const MyGames = ({ baseUrl }: MyGamesProps) => {
     let { account, provider } = useWeb3React();
-    const { state: { pending_games } } = useSequencerStore();
+    const { nonces, state: { pending_games } } = useSequencerStore();
 
     const acceptGame = useCallback(
         async (gameId: string) => {
-            let tx: Transaction = {
-                Extension: {
-                    StartGame: gameId,
-                }
-            }
             try {
                 if (!account || !provider) {
                     window.alert('Ethereum wallet is not connected');
                     return;
                 }
 
+                let tx: Transaction = {
+                    data: {
+                        Extension: {
+                            StartGame: gameId,
+                        }
+                    },
+                    nonce: nonces[account.toLowerCase()] ?
+                        BigNumber.from(nonces[account.toLowerCase()]++).toHexString().replace(/^0x0+/, '0x') :
+                        "0x0",
+                }
+
                 const signature = await provider.getSigner().signMessage(JSON.stringify(tx));
                 const { v, r, s } = ethers.utils.splitSignature(signature);
 
-                let wtx: WrappedTransaction = {
+                let wtx: SignedTransaction = {
                     pub_key: account.toLowerCase(),
                     sig: {
                         r, s, v
                     },
-                    data: tx
+                    tx
                 };
 
                 const receipt = await fetch(`${baseUrl}/rpc`, {
