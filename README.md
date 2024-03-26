@@ -40,7 +40,7 @@ Next, you will want to modify the [sequencer_ui](./sequencer_ui/) so that it mat
 Use vite to make development easier.
 
 Lastly, you may want to deploy your own [bridge](https://github.com/kinode-dao/chess-bridge).
-Currently, the [sequencer](./sequencer/sequencer/src/lib.rs) is set up to hit a particular bridge on sepolia.
+Currently, the [sequencer](./sequencer/sequencer/src/lib.rs) is set up to hit a particular bridge on Optimism.
 This means that you will be able to read new deposits in from that rollup, but you will not be able to post withdrawals (because you do not control the sequencer key!).
 For development purposes, it shouldn't matter that much, but if you would like to deploy your own bridge, that option is open, and will require some modifications to the [bridge_lib](./sequencer/sequencer/src/bridge_lib.rs) once you have deployed your bridge.
 In the future, this will be obviated with a more automated setup to deploy your own rollup, but for now this is part of the configuration.
